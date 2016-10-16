@@ -49,6 +49,7 @@ module.exports = function (file, api, options) {
   let existingModules = findExistingModules(root);
 
   updateOrCreateImportDeclarations(root, usedModules, existingModules);
+  applyReplacements(replacements);
 
   // importModules(root, modules);
 
@@ -93,12 +94,16 @@ module.exports = function (file, api, options) {
     mapping.replacements.push(replacement);
 
     return replacement;
-
-    // j(memberPath)
-    //   .replaceWith(j.identifier(identifier));
-
-    // modules.push([pkg, exportName, identifier]);
   }
+}
+
+function applyReplacements(replacements) {
+  replacements.forEach(replacement => {
+    console.log("LOCAL:", replacement.mapping.mod.local);
+    debugger;
+    j(replacement.nodePath.node)
+      .replaceWith(j.identifier(replacement.mapping.mod.local));
+  });
 }
 
 function updateOrCreateImportDeclarations(root, usedModules, existingModules) {
