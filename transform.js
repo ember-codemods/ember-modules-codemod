@@ -1,6 +1,102 @@
-const mappings = require("./mapping");
 const reserved = require("./reserved");
 const j = require("jscodeshift");
+
+module.exports = function (file, api, options) {
+  let source = file.source;
+  let j = api.jscodeshift;
+
+  let root = j(file.source);
+
+  let modules = findExistingModules(root);
+  let mappings = buildMappings(modules);
+  
+  let replacements = findUsageOfEmberGlobal(root)
+    .map(findReplacement(mappings));
+
+  updateOrCreateImportDeclarations(root, modules);
+  applyReplacements(replacements);
+  
+  source = beautifyImports(root.toSource());
+
+  console.log(source);
+  return source;
+}
+
+function buildMappings(registry) {
+  let mappings = require("./mapping");
+
+  for (let mapping of Object.keys(mappings)) {
+    mappings[mapping] = new Mapping(mappings[mapping], registry);
+  }
+  
+  return mappings;
+}
+
+/*
+ * Finds all uses of a property looked up on the Ember global (i.e.,
+ * `Ember.something`). Makes sure that it is actually the Ember global
+ * and not another variable that happens to be called `Ember`.
+ */
+function findUsageOfEmberGlobal(root) {
+  return root.find(j.MemberExpression, {
+    object: {
+      name: "Ember"
+    }
+  })
+  .filter(isEmberGlobal(root))
+  .paths();
+}
+
+class ModuleRegistry {
+  constructor() {
+    this.bySource = {};
+    this.modules = [];
+  }
+  
+  findModule(mod) {
+    return this.find(mod.source, mod.imported);
+  }
+  
+  find(source, imported) {
+    let byImported = this.bySource[source];
+    
+    if (!byImported) {
+      byImported = this.bySource[source] = {};
+    }
+    
+    return byImported[imported] || null;
+  }
+  
+  create(source, imported, local) {
+    if (this.find(source, imported)) {
+      throw new Error(`Module { ${source}, ${imported} } already exists.`);
+    }
+    
+    let byImported = this.bySource[source];
+    if (!byImported) {
+      byImported = this.bySource[source] = {};
+    }
+    
+    let mod = new Module(source, imported, local);
+    byImported[imported] = mod;
+    this.modules.push(mod);
+    
+    return mod;
+  }
+  
+  get(source, imported, local) {
+    let mod = this.find(source, imported, local);
+    if (!mod) {
+      mod = this.create(source, imported, local);
+    }
+    
+    return mod;
+  }
+  
+  hasSource(source) {
+    return source in this.bySource;
+  }
+}
 
 class Module {
   constructor(source, imported, local) {
@@ -9,54 +105,30 @@ class Module {
     this.local = local;
     this.node = null;
   }
-
-  isEqual(otherModule) {
-    return this.source === otherModule.source
-      && this.imported === otherModule.imported;
-  }
 }
 
 class Replacement {
-  constructor(nodePath, mapping) {
+  constructor(nodePath, mod) {
     this.nodePath = nodePath;
-    this.mapping = mapping;
+    this.mod = mod;
   }
 }
 
 class Mapping {
-  constructor([source, imported, local]) {
-    this.mod = new Module(source, imported || "default", local);
-    this.replacements = [];
+  constructor([source, imported, local], registry) {
+    this.source = source;
+    this.imported = imported || "default";
+    this.local = local;
+    this.registry = registry;
+  }
+  
+  getModule() {
+    return this.registry.get(this.source, this.imported, this.local);
   }
 }
 
-for (let mapping of Object.keys(mappings)) {
-  mappings[mapping] = new Mapping(mappings[mapping]);
-}
-
-module.exports = function (file, api, options) {
-  let source = file.source;
-  let j = api.jscodeshift;
-
-  let root = j(file.source);
-
-  let replacements = root.find(j.MemberExpression, { object: { name: "Ember" } })
-    .filter(isEmberGlobal)
-    .paths()
-    .map(findReplacement);
-
-  let usedModules = findModulesUsedInReplacements(replacements);
-  let existingModules = findExistingModules(root);
-
-  updateOrCreateImportDeclarations(root, usedModules, existingModules);
-  applyReplacements(replacements);
-
-  // importModules(root, modules);
-
-  console.log(root.toSource());
-  return root.toSource();
-
-  function findReplacement(path) {
+function findReplacement(mappings) {
+  return function(path) {
     // Expand the full set of property lookups. For example, we don't want
     // just "Ember.computed"—we want "Ember.computed.or" as well.
     let candidates = expandMemberExpressions(path);
@@ -81,68 +153,64 @@ module.exports = function (file, api, options) {
     let [nodePath, propertyPath] = found;
     let mapping = mappings[propertyPath];
 
-    if (!mapping.mod.local) {
+    let mod = mapping.getModule();
+    if (!mod.local) {
       // Ember.computed.or => or
       let local = propertyPath.split(".").slice(-1)[0];
       if (reserved.includes(local)) {
         local = `Ember${local}`;
       }
-      mapping.mod.local = local;
+      mod.local = local;
     }
 
-    let replacement = new Replacement(nodePath, mapping);
-    mapping.replacements.push(replacement);
-
-    return replacement;
-  }
+    return new Replacement(nodePath, mod);
+  };
 }
 
 function applyReplacements(replacements) {
-  replacements.forEach(replacement => {
-    console.log("LOCAL:", replacement.mapping.mod.local);
-    debugger;
-    j(replacement.nodePath.node)
-      .replaceWith(j.identifier(replacement.mapping.mod.local));
-  });
+  replacements
+    .filter(r => !!r)
+    .forEach(replacement => {
+      let local = replacement.mod.local;
+      replacement.nodePath
+        .replace(j.identifier(local));
+    });
 }
 
-function updateOrCreateImportDeclarations(root, usedModules, existingModules) {
+function updateOrCreateImportDeclarations(root, registry) {
   let body = root.get().value.program.body;
 
-  usedModules.forEach(usedMod => {
-    let bySource;
-    let { imported } = usedMod;
+  registry.modules.forEach(mod => {
+    if (!mod.node) {
+      let { source, imported, local } = mod;
 
-    if (bySource = findExisting(usedMod)) {
-      if (!bySource[imported]) {
+      let declaration = root.find(j.ImportDeclaration, {
+        source: { value: mod.source }
+      });
+
+      if (declaration.size() > 0) {
         let specifier;
+
         if (imported === 'default') {
-          specifier = j.importDefaultSpecifier(j.identifier(usedMod.local));
+          specifier = j.importDefaultSpecifier(j.identifier(local));
         } else {
-          specifier = j.importSpecifier(j.identifier(usedMod.imported), j.identifier(usedMod.local));
+          specifier = j.importSpecifier(j.identifier(imported), j.identifier(local));
         }
 
-        root.find(j.ImportDeclaration, {
-          source: { value: usedMod.source }
-        }).get("specifiers").push(specifier);
+        declaration.get("specifiers").push(specifier);
+        mod.node = declaration.at(0);
+      } else {
+        let importStatement = createImportStatement(source, imported, local);
+        body.unshift(importStatement);
+        body[0].comments = body[1].comments;
+        delete body[1].comments;
+        mod.node = importStatement;
       }
-    } else {
-      let importStatement = createImportStatement(usedMod.source, usedMod.imported, usedMod.local);
-      body.unshift(importStatement);
-      body[0].comments = body[1].comments;
-      delete body[1].comments;
-      usedMod.node = importStatement;
-      existingModules[usedMod.source] = {};
-      existingModules[usedMod.source][usedMod.imported] = usedMod;
     }
   });
-
-  function findExisting(mod) {
-    return existingModules[mod.source];
-  }
 }
 
-function findModulesUsedInReplacements(replacements) {
+function findUsedModules(replacements, existingModules) {
   let modules = [];
   let modulesBySource = {};
 
@@ -164,35 +232,25 @@ function findModulesUsedInReplacements(replacements) {
 }
 
 function findExistingModules(root) {
-  let modulesBySource = {};
+  let registry = new ModuleRegistry();
 
   root
     .find(j.ImportDeclaration)
     .forEach(({ node }) => {
       let source = node.source.value;
-      let byImported = modulesBySource[source];
-      if (!byImported) {
-        byImported = modulesBySource[source] = {};
-      }
 
       node.specifiers.forEach(spec => {
-        let imported;
-        if (j.ImportDefaultSpecifier.check(spec)) {
-          imported = "default";
-        } else {
-          imported = spec.imported.name;
-        }
+        let isDefault = j.ImportDefaultSpecifier.check(spec);
+        let imported = isDefault ? "default" : spec.imported.name;
 
-        let seenModule = byImported[imported];
-        if (!seenModule) {
-          let mod = new Module(source, imported, spec.local.name);
+        if (!registry.find(source, imported)) {
+          let mod = registry.create(source, imported, spec.local.name);
           mod.node = node;
-          byImported[imported] = mod;
         }
       });
     });
 
-  return modulesBySource;
+  return registry;
 }
 
 
@@ -250,6 +308,44 @@ function createImportStatement(source, imported, local) {
   return declaration;
 }
 
-function isEmberGlobal(path) {
-  return !path.scope.declares("Ember");
+function isEmberGlobal(root) {
+  return function(path) {
+    return !path.scope.declares("Ember") || root.find(j.ImportDeclaration, {
+      specifiers: [{
+        type: "ImportDefaultSpecifier",
+        local: {
+          name: "Ember"
+        }
+      }],
+      source: {
+        value: "ember"
+      }
+    }).size() > 0;
+  };
+}
+
+function beautifyImports(source) {
+  return source.replace(/\bimport.+from/g, (importStatement) => {
+    let openCurly = importStatement.indexOf('{');
+    let closeCurly = importStatement.indexOf('}');
+
+    // leave default only imports alone
+    if (openCurly === -1) { return importStatement; }
+
+    if (importStatement.length > 50) {
+      // if the segment is > 50 chars make it multi-line
+      let result = importStatement.slice(0, openCurly + 1);
+      let named = importStatement
+            .slice(openCurly + 1, -6).split(',')
+            .map(name => `\n  ${name.trim()}`);
+
+      return result + named.join(',') + '\n} from';
+    } else {
+      // if the segment is < 50 chars just make sure it has proper spacing
+      return importStatement
+        .replace(/,\s*/g, ', ') // ensure there is a space after commas
+        .replace(/\{\s*/, '{ ')
+        .replace(/\s*\}/, ' }');
+    }
+  });
 }
