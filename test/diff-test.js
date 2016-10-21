@@ -10,13 +10,15 @@ const tempPath = temp.mkdirSync("ember-modules-codemod-tests");
 
 const TIMEOUT = 10000;
 
-let files = fs.readdirSync(inputPath)
+var files = fs.readdirSync(inputPath)
 
 files.forEach(function(file) {
   copy(inputPath + "/" + file, tempPath + "/" + file);
 
   it(file + " input and output should match", function(done) {
-    let jscodeshift = spawn(jscodeshiftPath, jscodeshiftArgs(file), {
+    this.timeout(TIMEOUT);
+
+    var jscodeshift = spawn(jscodeshiftPath, jscodeshiftArgs(file), {
       stdio: "ignore",
       cwd: tempPath
     });
@@ -37,8 +39,8 @@ files.forEach(function(file) {
 });
 
 function assertFilesEqual(file) {
-  let expected = fs.readFileSync(expectedPath + "/" + file);
-  let actual = fs.readFileSync(tempPath + "/" + file);
+  var expected = fs.readFileSync(expectedPath + "/" + file);
+  var actual = fs.readFileSync(tempPath + "/" + file);
 
   if (!actual.equals(expected)) {
     throw new FilesDoNotMatchError(file, actual, expected);
@@ -58,6 +60,6 @@ function jscodeshiftArgs(file) {
 }
 
 function copy(source, dest) {
-  let buf = fs.readFileSync(source);
+  var buf = fs.readFileSync(source);
   fs.writeFileSync(dest, buf);
 }
