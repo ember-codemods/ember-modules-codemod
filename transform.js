@@ -113,7 +113,7 @@ function transform(file, api, options) {
       if (!mod.local) {
         // Ember.computed.or => or
         let local = propertyPath.split(".").slice(-1)[0];
-        if (RESERVED.includes(local)) {
+        if (includes(RESERVED, local)) {
           local = `Ember${local}`;
         }
         mod.local = local;
@@ -323,6 +323,10 @@ function transform(file, api, options) {
       }
     });
   }
+}
+
+function includes(array, value) {
+  return array.indexOf(value) > -1;
 }
 
 class ModuleRegistry {

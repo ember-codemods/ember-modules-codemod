@@ -9,6 +9,9 @@ const transformPath = __dirname + "/../transform.js";
 const tempPath = temp.mkdirSync("ember-modules-codemod-tests");
 
 const TIMEOUT = 10000;
+const VERBOSE_ENV_VAR = "VERBOSE_JSCODESHIFT";
+
+console.log("Running tests. Run with " + VERBOSE_ENV_VAR + " to see jscodeshift output.");
 
 var files = fs.readdirSync(inputPath)
 
@@ -19,7 +22,7 @@ files.forEach(function(file) {
     this.timeout(TIMEOUT);
 
     var jscodeshift = spawn(jscodeshiftPath, jscodeshiftArgs(file), {
-      stdio: "ignore",
+      stdio: process.env[VERBOSE_ENV_VAR] === "true" ? "inherit" : "ignore",
       cwd: tempPath
     });
 
