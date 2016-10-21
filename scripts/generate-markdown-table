@@ -1,5 +1,7 @@
-let mapping = require("./mapping");
-let reserved = require("./reserved");
+#!/usr/bin/env node
+
+let mapping = require("../config/mapping");
+let reserved = require("../config/reserved");
 
 let maxBefore = 0;
 let maxAfter = 0;

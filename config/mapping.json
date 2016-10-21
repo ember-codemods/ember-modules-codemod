@@ -79,7 +79,7 @@
   "ContainerDebugAdapter": ["ember-debug/container-debug-adapter"],
   "DataAdapter": ["ember-debug/data-adapter"],
   "Resolver": ["ember-application/resolver"],
-  "DefaultResolver": ["ember-application/globals-resolver"],
+  "DefaultResolver": ["ember-application/globals-resolver", null, "GlobalsResolver"],
   "Helper": ["ember-component/helper"],
   "Helper.helper": ["ember-component/helper", "helper"],
   "instrument": ["ember-instrumentation", "instrument"],

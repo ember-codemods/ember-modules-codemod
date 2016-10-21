@@ -1,5 +1,5 @@
-const RESERVED = require("./reserved");
-const MAPPINGS = require("./mapping");
+const RESERVED = require("./config/reserved");
+const MAPPINGS = require("./config/mapping");
 
 module.exports = transform;
 
