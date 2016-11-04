@@ -3,6 +3,7 @@
 const fs = require("fs");
 const spawn = require("child_process").spawn;
 const chalk = require("chalk");
+const path = require("path");
 
 let cwd = process.cwd();
 let pkgPath = cwd + "/package.json";
@@ -13,7 +14,7 @@ try {
     notAnEmberApp("I couldn't find ember-cli in the dependencies of " + pkgPath);
   }
 
-  let binPath = __dirname + "/../node_modules/jscodeshift/bin/jscodeshift.sh";
+  let binPath = path.dirname(require.resolve("jscodeshift")) + "/bin/jscodeshift.sh";
   let transformPath = __dirname + "/../transform.js";
   spawn(binPath, ["-t", transformPath, "app/"], {
     stdio: "inherit"
