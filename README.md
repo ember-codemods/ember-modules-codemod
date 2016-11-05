@@ -40,6 +40,14 @@ cd my-ember-app
 ember-modules-codemod
 ```
 
+#### Unknown Globals
+
+If the codemod finds a use of the `Ember` global it doesn't know how to
+translate, it will write a report to `MODULE_REPORT.md`. You can use this report
+as the basis for filing support issues or contributing to the RFC.
+
+#### Standalone
+
 This package includes an `ember-modules-codemod` binary that wraps `jscodeshift`
 and invokes it with the correct configuration when inside the root directory of
 an Ember app.
@@ -53,6 +61,9 @@ git clone https://github.com/tomdale/ember-modules-codemod
 cd my-ember-app
 jscodeshift -t ../ember-modules-codemod/transform.js app
 ```
+
+Note that invoking the transform directly disables the generation of the
+Markdown report if any unknown globals are discovered.
 
 ### Maybe Helpful Scripts
 

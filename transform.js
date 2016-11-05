@@ -1,5 +1,8 @@
+const fs       = require("fs");
 const RESERVED = require("./config/reserved");
 const MAPPINGS = require("./config/mapping");
+
+const LOG_FILE = "ember-modules-codemod.tmp." + process.pid;
 
 module.exports = transform;
 
@@ -12,7 +15,11 @@ function transform(file, api, options) {
   let source = file.source;
   let j = api.jscodeshift;
 
-  let root = j(file.source);
+  let root = j(source);
+
+  // Track any use of `Ember.*` that isn't accounted for in the mapping. We'll
+  // use this at the end to generate a report.
+  let missingImports = [];
 
   // Discover existing module imports, if any, in the file. If the user has
   // already imported one or more exports that we rewrite a global with, we
@@ -43,6 +50,16 @@ function transform(file, api, options) {
   // jscodeshift is not so great about giving us control over the resulting whitespace.
   // We'll use a regular expression to try to improve the situation (courtesy of @rwjblue).
   source = beautifyImports(root.toSource());
+
+  // If there were modules that we didn't know about, write them to a log file.
+  // We only do this if invoked via the CLI tool, not jscodeshift directly,
+  // because jscodeshift doesn't give us a cleanup hook when everything is done
+  // to parse these files. (This is what the environment variable is checking.)
+  if (missingImports.length && process.env.EMBER_MODULES_CODEMOD) {
+    missingImports.forEach(missingImport => {
+      fs.appendFileSync(LOG_FILE, JSON.stringify(missingImport) + "\n");
+    });
+  }
 
   return source;
 
@@ -102,7 +119,9 @@ function transform(file, api, options) {
       // If we got this far but didn't find a viable candidate, that means the user is
       // using something on the `Ember` global that we don't have a module equivalent for.
       if (!found) {
-        console.log("Missing module equivalent: Ember." + candidates[0][1]);
+        let context = extractSourceContext(path);
+        let lineNumber = path.value.loc.start.line;
+        missingImports.push([candidates[candidates.length-1][1], lineNumber, file.path, context]);
         return null;
       }
 
@@ -121,6 +140,18 @@ function transform(file, api, options) {
 
       return new Replacement(nodePath, mod);
     };
+  }
+
+  function extractSourceContext(path) {
+    let start = path.node.loc.start.line;
+    let end = path.node.loc.end.line;
+
+    let lines = source.split("\n");
+
+    start = Math.max(start-2, 1);
+    end = Math.min(start+2, lines.length);
+
+    return lines.slice(start, end).join("\n");
   }
 
   function applyReplacements(replacements) {
