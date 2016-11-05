@@ -87,6 +87,7 @@
   "subscribe": ["@ember/instrumentation", "subscribe"],
   "unsubscribe": ["@ember/instrumentation", "unsubscribe"],
   "Location": ["@ember/routing/location"],
+  "AutoLocation": ["@ember/routing/auto-location"],
   "HashLocation": ["@ember/routing/hash-location"],
   "HistoryLocation": ["@ember/routing/history-location"],
   "NoneLocation": ["@ember/routing/none-location"],
@@ -130,5 +131,7 @@
   "isNone": ["@ember/utils", "isNone"],
   "isPresent": ["@ember/utils", "isPresent"],
   "tryInvoke": ["@ember/utils", "tryInvoke"],
-  "typeOf": ["@ember/utils", "typeOf"]
+  "typeOf": ["@ember/utils", "typeOf"],
+  "$": ["jquery"],
+  "RSVP": ["rsvp"]
 }
