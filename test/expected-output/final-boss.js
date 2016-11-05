@@ -10,11 +10,11 @@
 //  * Variables named `Ember` are not considered
 //  * Manual aliasing (`var Component = Ember.Component` is removed)
 //  * `Ember` must be the root of property lookups (no `foo.Ember.bar`)
-import EmberArray from "ember-array";
+import EmberArray from "@ember/array";
 
-import Component from "ember-component";
-import FemberObject, { computed } from "ember-object";
-import { or as bore, and } from "ember-object/computed";
+import Component from "@ember/component";
+import FemberObject, { computed } from "@ember/object";
+import { or as bore, and } from "@ember/object/computed";
 
 let bar = foo.Ember.computed.or;
 
