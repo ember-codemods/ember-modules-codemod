@@ -1,7 +1,7 @@
 # Ember Modules Codemod
 
 This codemod uses [`jscodeshift`](https://github.com/facebook/jscodeshift) to update an Ember application to
-use the JavaScript (ES6) module syntax. It can update apps that use the global `Ember`, and will eventually also support
+import framework code using module syntax, as proposed in [RFC 176: JavaScript Module API](https://github.com/emberjs/rfcs/pull/176). It can update apps that use the global `Ember`, and will eventually also support
 apps using [ember-cli-shims][shims].
 
 [shims]: https://github.com/ember-cli/ember-cli-shims
