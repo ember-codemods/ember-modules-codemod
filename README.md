@@ -27,6 +27,9 @@ export default Component.extend({
 
 ## Usage
 
+**This package requires Node 6 or later. Make sure you are using a newer version
+of Node before installing and running this package.**
+
 **WARNING**: `jscodeshift`, and thus this codemod, **edit your files in place**.
 It does not make a copy. Make sure your code is checked into a source control
 repository like Git and that you have no outstanding changes to commit before
