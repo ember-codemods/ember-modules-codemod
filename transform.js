@@ -3,6 +3,8 @@ const RESERVED = require("./config/reserved");
 const MAPPINGS = require("./config/mapping");
 
 const LOG_FILE = "ember-modules-codemod.tmp." + process.pid;
+const ERROR_WARNING = 1;
+const MISSING_GLOBAL_WARNING = 2;
 
 module.exports = transform;
 
@@ -19,46 +21,54 @@ function transform(file, api, options) {
 
   // Track any use of `Ember.*` that isn't accounted for in the mapping. We'll
   // use this at the end to generate a report.
-  let missingImports = [];
+  let warnings = [];
 
-  // Discover existing module imports, if any, in the file. If the user has
-  // already imported one or more exports that we rewrite a global with, we
-  // won't import them again. We also try to be smart about not adding multiple
-  // import statements to import from the same module, condensing default
-  // exports and named exports into one line if necessary.
-  let modules = findExistingModules(root);
+  try {
+    // Discover existing module imports, if any, in the file. If the user has
+    // already imported one or more exports that we rewrite a global with, we
+    // won't import them again. We also try to be smart about not adding multiple
+    // import statements to import from the same module, condensing default
+    // exports and named exports into one line if necessary.
+    let modules = findExistingModules(root);
 
-  // Build a data structure that tells us how to map properties on the Ember
-  // global into the module syntax.
-  let mappings = buildMappings(modules);
+    // Build a data structure that tells us how to map properties on the Ember
+    // global into the module syntax.
+    let mappings = buildMappings(modules);
 
-  // Scan the source code, looking for any instances of the `Ember` identifier
-  // used as the root of a property lookup. If they match one of the provided
-  // mappings, save it off for replacement later.
-  let replacements = findUsageOfEmberGlobal(root)
-    .map(findReplacement(mappings));
+    // Scan the source code, looking for any instances of the `Ember` identifier
+    // used as the root of a property lookup. If they match one of the provided
+    // mappings, save it off for replacement later.
+    let replacements = findUsageOfEmberGlobal(root)
+      .map(findReplacement(mappings));
 
-  // Now that we've identified all of the replacements that we need to do, we'll
-  // make sure to either add new `import` declarations, or update existing ones
-  // to add new named exports or the default export.
-  updateOrCreateImportDeclarations(root, modules);
+    // Now that we've identified all of the replacements that we need to do, we'll
+    // make sure to either add new `import` declarations, or update existing ones
+    // to add new named exports or the default export.
+    updateOrCreateImportDeclarations(root, modules);
 
-  // Actually go through and replace each usage of `Ember.whatever` with the
-  // imported binding (`whatever`).
-  applyReplacements(replacements);
+    // Actually go through and replace each usage of `Ember.whatever` with the
+    // imported binding (`whatever`).
+    applyReplacements(replacements);
 
-  // jscodeshift is not so great about giving us control over the resulting whitespace.
-  // We'll use a regular expression to try to improve the situation (courtesy of @rwjblue).
-  source = beautifyImports(root.toSource());
+    // jscodeshift is not so great about giving us control over the resulting whitespace.
+    // We'll use a regular expression to try to improve the situation (courtesy of @rwjblue).
+    source = beautifyImports(root.toSource());
+  } catch (e) {
+    if (process.env.EMBER_MODULES_CODEMOD) {
+      warnings.push([ERROR_WARNING, file.path, source, e.stack]);
+    }
 
-  // If there were modules that we didn't know about, write them to a log file.
-  // We only do this if invoked via the CLI tool, not jscodeshift directly,
-  // because jscodeshift doesn't give us a cleanup hook when everything is done
-  // to parse these files. (This is what the environment variable is checking.)
-  if (missingImports.length && process.env.EMBER_MODULES_CODEMOD) {
-    missingImports.forEach(missingImport => {
-      fs.appendFileSync(LOG_FILE, JSON.stringify(missingImport) + "\n");
-    });
+    throw e;
+  } finally {
+    // If there were modules that we didn't know about, write them to a log file.
+    // We only do this if invoked via the CLI tool, not jscodeshift directly,
+    // because jscodeshift doesn't give us a cleanup hook when everything is done
+    // to parse these files. (This is what the environment variable is checking.)
+    if (warnings.length && process.env.EMBER_MODULES_CODEMOD) {
+      warnings.forEach(warning => {
+        fs.appendFileSync(LOG_FILE, JSON.stringify(warning) + "\n");
+      });
+    }
   }
 
   return source;
@@ -121,7 +131,7 @@ function transform(file, api, options) {
       if (!found) {
         let context = extractSourceContext(path);
         let lineNumber = path.value.loc.start.line;
-        missingImports.push([candidates[candidates.length-1][1], lineNumber, file.path, context]);
+        warnings.push([MISSING_GLOBAL_WARNING, candidates[candidates.length-1][1], lineNumber, file.path, context]);
         return null;
       }
 
@@ -149,7 +159,7 @@ function transform(file, api, options) {
     let lines = source.split("\n");
 
     start = Math.max(start-2, 1);
-    end = Math.min(start+2, lines.length);
+    end = Math.min(end+2, lines.length);
 
     return lines.slice(start, end).join("\n");
   }
@@ -246,7 +256,13 @@ function transform(file, api, options) {
 
         node.specifiers.forEach(spec => {
           let isDefault = j.ImportDefaultSpecifier.check(spec);
-          let imported = isDefault ? "default" : spec.imported.name;
+
+          // Some cases like `import * as bar from "foo"` have neither a
+          // default nor a named export, which we don't currently handle.
+          let imported = isDefault ? "default" :
+            (spec.imported ? spec.imported.name : null);
+
+          if (!imported) { return; }
 
           if (!registry.find(source, imported)) {
             let mod = registry.create(source, imported, spec.local.name);

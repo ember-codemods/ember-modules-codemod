@@ -90,13 +90,12 @@ function buildReport() {
     // markdown and write it to MODULE_REPORT.md.
     if (report.length) {
       report = report.map(line => {
-        let [global, lineNumber, path, context] = line;
-        return `#### Unknown global \`Ember.${global}\` at \`${path}\` line ${lineNumber}:
-
-\`\`\`js
-${context}
-\`\`\`
-`;
+        let type = line[0];
+        if (type === 1) {
+          return runtimeErrorWarning(line);
+        } else {
+          return unknownGlobalWarning(line);
+        }
       });
 
       fs.writeFileSync("MODULE_REPORT.md", "## Module Report\n" + report.join("\n"));
@@ -105,4 +104,39 @@ ${context}
       console.log(chalk.green("\nDone! All uses of the Ember global have been updated."));
     }
   });
+}
+
+function runtimeErrorWarning(line) {
+  let [_, path, source, err] = line;
+
+  return `### Runtime Error
+
+**Path**: \`${path}\`
+
+**Error**:
+
+\`\`\`
+${err}
+\`\`\`
+
+**Source**:
+
+\`\`\`js
+${source}
+\`\`\`
+`;
+}
+
+function unknownGlobalWarning(line) {
+  let [_, global, lineNumber, path, context] = line;
+  return `### Unknown Global
+
+**Global**: \`Ember.${global}\`
+
+**Location**: \`${path}\` at line ${lineNumber}
+
+\`\`\`js
+${context}
+\`\`\`
+`;
 }

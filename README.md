@@ -182,3 +182,13 @@ A list of reserved identifiers (including `Object`) is included in
 `config/reserved.json`. Anything that appears in this list will be prefixed with
 `Ember`; so, for example, `import Object from "ember-object"` would become
 `import EmberObject from "ember-object"`.
+
+### Known Issues
+
+There are some limitations in the current implementation that can hopefully be
+addressed in the future. PRs welcome!
+
+* Apps using `ember-cli-shims` are not updated.
+* All long imports are beautified, even non-Ember ones.
+* Destructured assignment to the Ember global is not handled (e.g. `const { underscore } = Ember`).
+* Namespace imports (`import * as bar from "foo"`) are not supported.
