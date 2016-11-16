@@ -60,7 +60,19 @@ function buildTable(result, row) {
   group.maxBefore = Math.max(group.maxBefore, before.length);
   group.maxAfter = Math.max(group.maxAfter, after.length);
 
-  return group.rows.push([before, after]), result;
+  return group.rows.push([before, after, row.row]), result;
+}
+
+function cmp(a, b) {
+  return (a > b) ? 1 : (a < b) ? -1 : 0;
+}
+
+function sortByPackageAndExport([,,a], [,,b]) {
+  if (a[0] === b[0]) {
+    return cmp(a[1] || "", b[1] || "");
+  }
+
+  return cmp(a[0], b[0]);
 }
 
 function printTable(table) {
@@ -68,11 +80,16 @@ function printTable(table) {
     print("### " + code(name));
 
     let group = table[name];
-    group.rows.unshift(["---", "---"]);
-    group.rows.unshift(["Global", "Module"]);
-    group.rows.map(([before, after]) => {
+    let rows = group.rows;
+
+    rows = rows.sort(sortByPackageAndExport);
+
+    rows.unshift(["---", "---"]);
+    rows.unshift(["Global", "Module"]);
+    rows.map(([before, after]) => {
       print(`|${pad(after, group.maxAfter)}|${pad(before, group.maxBefore)}|`);
     });
+
     print();
   });
 }
