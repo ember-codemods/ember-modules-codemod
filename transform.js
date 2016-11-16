@@ -41,14 +41,84 @@ function transform(file, api, options) {
     let replacements = findUsageOfEmberGlobal(root)
       .map(findReplacement(mappings));
 
+
+
+    // Actually go through and replace each usage of `Ember.whatever` with the
+    // imported binding (`whatever`).
+    applyReplacements(replacements);
+
+    // All declarations of first level variables from the global ember namespace
+    // i.e. : `computed` from `const {computed} = Ember`
+    let propertyDeclarations = findDestructuringOfEmberGlobal(root);
+
+    // Check if property is used as a namespace.
+    // If so, replace nested property with usage of the
+    // corresponding module, if possible.
+    // Child array includes uses of namespace, i.e. `compute.readOnly`
+    propertyDeclarations.forEach(function(path){
+      path.node.declarations[0].id.properties.forEach((property)=>{
+        let usageOfNamespace = findUsageOfDestructuredNamespace(root)(property);
+        let replacements = usageOfNamespace.map(findNamespaceReplacement(mappings));
+
+        if (usageOfNamespace.length === 0 || usageOfNamespace.length === replacements.length){
+          property['markedForDelete'] = true;
+        }
+
+        applyReplacements(replacements);
+      });
+    });
+
+
+    // Check if property is used directly.
+    // If so, account it for the proper import
+    propertyDeclarations.forEach(function(path){
+      let properties = path.node.declarations[0].id.properties;
+      properties.forEach((property)=>{
+        let propName =property.value.name;
+        let usageOfProperty = root.find(j.CallExpression, {
+            callee: {
+              name: propName
+            }
+          })
+          .paths();
+
+
+        if(usageOfProperty.length && (propName in mappings)){
+          let mapping = mappings[propName];
+          let mod = mapping.getModule();
+          if (!mod.local) {
+            // Ember.computed.or => or
+            let local = propName.split(".").slice(-1)[0];
+            if (includes(RESERVED, local)) {
+              local = `Ember${local}`;
+            }
+            mod.local = local;
+          }
+        }
+
+        // Confirm delete of property declaration if it never used or always replaced
+        property.markedForDelete = (!usageOfProperty.length && property.markedForDelete) ||
+                                  (usageOfProperty.length && (propName in mappings));
+      });
+    });
+
+    propertyDeclarations.forEach(function(path){
+      let keepProps = path.node.declarations[0].id.properties.filter((prop)=>{
+        return !prop.markedForDelete;
+      });
+
+      if (!keepProps.length){
+        path.prune();
+      } else {
+        path.node.declarations[0].id.properties = keepProps;
+      }
+    });
+
     // Now that we've identified all of the replacements that we need to do, we'll
     // make sure to either add new `import` declarations, or update existing ones
     // to add new named exports or the default export.
     updateOrCreateImportDeclarations(root, modules);
 
-    // Actually go through and replace each usage of `Ember.whatever` with the
-    // imported binding (`whatever`).
-    applyReplacements(replacements);
 
     // jscodeshift is not so great about giving us control over the resulting whitespace.
     // We'll use a regular expression to try to improve the situation (courtesy of @rwjblue).
@@ -370,6 +440,71 @@ function transform(file, api, options) {
       }
     });
   }
+
+  function findDestructuringOfEmberGlobal(root){
+    return root.find(j.VariableDeclaration, {
+      declarations: [{
+        init: {
+           name: 'Ember'
+        }
+      }]
+    })
+    .filter(isEmberGlobal(root))
+    .paths();
+  }
+
+  function findUsageOfDestructuredNamespace(root){
+    return (property)=>{
+      let namespace = property.value;
+      return root.find(j.MemberExpression, {
+          object: {
+            name: namespace.name
+          }
+        })
+        .paths();
+    };
+  }
+
+  function findNamespaceReplacement(mappings){
+    return (path)=>{
+
+      let candidates = expandMemberExpressions(path).map(decorateNamespaceCandidates(path.node.object.name));
+      let found = candidates.find(([_, propertyPath]) => {
+        return propertyPath in mappings;
+      });
+
+      if(!found){
+        // TODO: is this possible? Maybe for custom Ember.globalVariable
+        // second level property with no module
+        // i.e: `readOnly` for `computed.readOnly`
+        return null;
+      }
+
+      let [nodePath, propertyPath] = found;
+      let mapping = mappings[propertyPath];
+
+      let mod = mapping.getModule();
+      if (!mod.local) {
+        // Ember.computed.or => or
+        let local = propertyPath.split(".").slice(-1)[0];
+        if (includes(RESERVED, local)) {
+          local = `Ember${local}`;
+        }
+        mod.local = local;
+      }
+
+      return new Replacement(nodePath, mod);
+    };
+  }
+
+  function decorateNamespaceCandidates(namespace){
+    return (candidate)=>{
+      candidate[candidate.length-1] = `${namespace}.${candidate[candidate.length-1]}`;
+      return candidate;
+    };
+  }
+
+
 }
 
 function includes(array, value) {
