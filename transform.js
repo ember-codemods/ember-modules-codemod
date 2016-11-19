@@ -4,7 +4,10 @@ const MAPPINGS = require("./config/mapping");
 
 const LOG_FILE = "ember-modules-codemod.tmp." + process.pid;
 const ERROR_WARNING = 1;
-const MISSING_GLOBAL_WARNING = 2;
+const MISSING_EXPRESSION_WARNING = 2;
+const MISSING_NAMESPACE_WARNING = 3;
+const UNSUPPORTED_DESTRUCTURING = 4
+const MISSING_GLOBAL_WARNING = 5;
 
 module.exports = transform;
 
@@ -47,72 +50,87 @@ function transform(file, api, options) {
     // imported binding (`whatever`).
     applyReplacements(replacements);
 
-    // All declarations of first level variables from the global ember namespace
-    // i.e. : `computed` from `const {computed} = Ember`
+
+
+    // Lookup for declarations of variables from the global ember namespace
+    // i.e. : `const {computed} = Ember`
     let propertyDeclarations = findDestructuringOfEmberGlobal(root);
 
-    // Check if property is used as a namespace.
-    // If so, replace nested property with usage of the
-    // corresponding module, if possible.
-    // Child array includes uses of namespace, i.e. `compute.readOnly`
+    // Go through all properties declared and look for a proper replacement
     propertyDeclarations.forEach(function(path){
       path.node.declarations[0].id.properties.forEach((property)=>{
-        let usageOfNamespace = findUsageOfDestructuredNamespace(root)(property);
-        let replacements = usageOfNamespace.map(findNamespaceReplacement(mappings));
 
-        if (usageOfNamespace.length === 0 || usageOfNamespace.length === replacements.length){
+        // We do not support nested declarations yet. Skip it.
+        // i.e. const {computed: {readOnly}} = Ember;
+        if(property.value.properties){
+          let context = extractSourceContext(path);
+          let lineNumber = path.value.loc.start.line;
+          warnings.push([UNSUPPORTED_DESTRUCTURING, property.key.name, lineNumber, file.path, context]);
+
+          return;
+        }
+
+        // Check if property is used as a namespace.
+        let usageOfNamespace = findUsageOfDestructuredNamespace(root)(property);
+
+        // If used as namespace, find the most suitable
+        // replacement for either the namespace or the namespace
+        // propcerty used in the statement. i.e.
+        // `readOnly` for `computed.readOnly`
+        // `computed` for `computed.unknownModule`
+        let namespaceReplacements = usageOfNamespace.reduce(findNamespaceReplacement(property, mappings), []);
+
+        // Mark this namespace for prune if it is not used
+        // or we can replace it everywhere
+        if (usageOfNamespace.length === 0 ||
+            usageOfNamespace.length === namespaceReplacements.length){
           property['markedForDelete'] = true;
         }
 
-        applyReplacements(replacements);
-      });
-    });
+        // Actually replace namespace usages
+        applyReplacements(namespaceReplacements);
 
+        debugger
+        let propAlias = property.value.name;
+        let propName = property.key.name;
 
-    // Check if property is used directly.
-    // If so, account it for the proper import
-    propertyDeclarations.forEach(function(path){
-      let properties = path.node.declarations[0].id.properties;
-      properties.forEach((property)=>{
-        let propName =property.value.name;
-        let usageOfProperty = root.find(j.CallExpression, {
-            callee: {
-              name: propName
-            }
-          })
-          .paths();
+        let usageOFExpression = findUsageOfDestructuredExpression(root)(propAlias);
+        let propertyUsedAsExpression = !!usageOFExpression.length;
+        let canReplaceDeclaration = propName in mappings;
 
+        if (!propertyUsedAsExpression){
+          property['markedForDelete'] &= true;
 
-        if(usageOfProperty.length && (propName in mappings)){
+        } else if (canReplaceDeclaration){
           let mapping = mappings[propName];
           let mod = mapping.getModule();
           if (!mod.local) {
             // Ember.computed.or => or
-            let local = propName.split(".").slice(-1)[0];
+            let local = propAlias;
             if (includes(RESERVED, local)) {
               local = `Ember${local}`;
             }
             mod.local = local;
           }
+          property['markedForDelete'] &= true;
+
+        } else {
+          let expressionName = propName;
+          usageOFExpression.forEach((expressionPath)=>{
+            let context = extractSourceContext(expressionPath);
+            let lineNumber = expressionPath.value.loc.start.line;
+            warnings.push([MISSING_EXPRESSION_WARNING, expressionName, lineNumber, file.path, context]);
+          });
+
+          property['markedForDelete'] = false;
         }
 
-        // Confirm delete of property declaration if it never used or always replaced
-        property.markedForDelete = (!usageOfProperty.length && property.markedForDelete) ||
-                                  (usageOfProperty.length && (propName in mappings));
       });
     });
 
-    propertyDeclarations.forEach(function(path){
-      let keepProps = path.node.declarations[0].id.properties.filter((prop)=>{
-        return !prop.markedForDelete;
-      });
-
-      if (!keepProps.length){
-        path.prune();
-      } else {
-        path.node.declarations[0].id.properties = keepProps;
-      }
-    });
+    // Remove repleacable variable/namespaces from
+    // declaration statements
+    cleanupDestructuredDeclarations(propertyDeclarations);
 
     // Now that we've identified all of the replacements that we need to do, we'll
     // make sure to either add new `import` declarations, or update existing ones
@@ -291,6 +309,13 @@ function transform(file, api, options) {
           delete body[1].comments;
           mod.node = importStatement;
         }
+      } else {
+        if(!isUsedModule(root, mod)){
+          root.find(j.ImportDeclaration, {
+              source: { value: mod.source }
+            })
+            .remove();
+        }
       }
     });
   }
@@ -441,6 +466,7 @@ function transform(file, api, options) {
     });
   }
 
+
   function findDestructuringOfEmberGlobal(root){
     return root.find(j.VariableDeclaration, {
       declarations: [{
@@ -465,35 +491,52 @@ function transform(file, api, options) {
     };
   }
 
-  function findNamespaceReplacement(mappings){
-    return (path)=>{
+  function findUsageOfDestructuredExpression(root){
+    return (expression)=>{
+      return root.find(j.CallExpression, {
+          callee: {
+            name: expression
+          }
+        })
+        .paths();
+    };
+  }
 
-      let candidates = expandMemberExpressions(path).map(decorateNamespaceCandidates(path.node.object.name));
+  function findNamespaceReplacement(namespaceNode, mappings){
+    return (replacements, path)=>{
+
+      let namespace = path.node.object.name;
+      let candidates = expandMemberExpressions(path)
+                        .map(decorateNamespaceCandidates(namespace))
+                        .concat([[path, namespace]]);
+
       let found = candidates.find(([_, propertyPath]) => {
         return propertyPath in mappings;
       });
 
       if(!found){
-        // TODO: is this possible? Maybe for custom Ember.globalVariable
-        // second level property with no module
-        // i.e: `readOnly` for `computed.readOnly`
-        return null;
-      }
+        // We don't have a mapping for neither the namespace nor
+        // the nested property
+        let context = extractSourceContext(path);
+        let lineNumber = path.value.loc.start.line;
+        warnings.push([MISSING_NAMESPACE_WARNING, candidates[candidates.length-1][1], lineNumber, file.path, context]);
+      } else {
+        let [nodePath, propertyPath] = found;
+        let mapping = mappings[propertyPath];
 
-      let [nodePath, propertyPath] = found;
-      let mapping = mappings[propertyPath];
-
-      let mod = mapping.getModule();
-      if (!mod.local) {
-        // Ember.computed.or => or
-        let local = propertyPath.split(".").slice(-1)[0];
-        if (includes(RESERVED, local)) {
-          local = `Ember${local}`;
+        let mod = mapping.getModule();
+        if (!mod.local) {
+          // Ember.computed.or => or
+          let local = propertyPath.split(".").slice(-1)[0];
+          if (includes(RESERVED, local)) {
+            local = `Ember${local}`;
+          }
+          mod.local = local;
         }
-        mod.local = local;
+        replacements.push(new Replacement(nodePath, mod));
       }
 
-      return new Replacement(nodePath, mod);
+      return replacements;
     };
   }
 
@@ -504,11 +547,53 @@ function transform(file, api, options) {
     };
   }
 
+  function isUsedModule(root, module){
+    let usageOfModuleExpression = root.find(j.MemberExpression, {
+      object: {
+        name: module.local
+      }
+    });
 
+    let usageOfModuleFunction = root.find(j.CallExpression, {
+      callee: {
+        name: module.local
+      }
+    });
+
+    let usageOfModuleProperty = root.find(j.Property, {
+      key: {
+        name: module.local
+      }
+    });
+
+    return !!usageOfModuleFunction.length ||
+            !!usageOfModuleProperty.length ||
+            !!usageOfModuleExpression.length;
+  }
+
+  function cleanupDestructuredDeclarations(declarations){
+    declarations.forEach(function(path){
+      let keepProps = path.node.declarations[0].id.properties.filter((prop)=>{
+        return !prop.markedForDelete;
+      });
+
+      if (!keepProps.length){
+        path.prune();
+      } else {
+        path.node.declarations[0].id.properties = keepProps;
+      }
+    });
+  }
 }
 
 function includes(array, value) {
   return array.indexOf(value) > -1;
+}
+
+function flatten (list){
+  return list.reduce((a, b)=>{
+    return a.concat(Array.isArray(b) ? flatten(b) : b), [];
+  });
 }
 
 class ModuleRegistry {
