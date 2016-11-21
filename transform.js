@@ -54,7 +54,7 @@ function transform(file, api, options) {
 
     // Lookup for declarations of variables from the global ember namespace
     // i.e. : `const {computed} = Ember`
-    let propertyDeclarations = findDestructuringOfEmberGlobal(root);
+    let propertyDeclarations = findDestructuringOfNamespace(root, 'Ember');
 
     // Go through all properties declared and look for a proper replacement
     propertyDeclarations.forEach(function(path){
@@ -428,15 +428,15 @@ function transform(file, api, options) {
   }
 
 
-  function findDestructuringOfEmberGlobal(root){
+  function findDestructuringOfNamespace(root, namespace){
     return root.find(j.VariableDeclaration, {
       declarations: [{
         init: {
-           name: 'Ember'
+           name: namespace
         }
       }]
     })
-    .filter(isEmberGlobal(root))
+    // .filter(isEmberGlobal(root))
     .paths();
   }
 
@@ -577,7 +577,8 @@ function transform(file, api, options) {
     let propName = propertyDeclaration.key.name;
 
     let usageOFExpression = findUsageOfDestructuredExpression(root)(propAlias);
-    let propertyUsedAsExpression = !!usageOFExpression.length;
+    let usageOfDestructuredSubmodules = findDestructuringOfNamespace(root, propAlias);
+    let propertyUsedAsExpression = !!usageOFExpression.length || !!usageOfDestructuredSubmodules.length;
     let canReplaceDeclaration = propName in mappings;
 
     if (!propertyUsedAsExpression){
