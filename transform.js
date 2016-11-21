@@ -199,7 +199,9 @@ function transform(file, api, options) {
         // Ember.computed.or => or
         let local = propertyPath.split(".").slice(-1)[0];
         if (includes(RESERVED, local)) {
-          local = `Ember${local}`;
+          // Prevent jshint errors for Capitalized functions
+          // (considered as constructors)
+          local = mod.imported.charAt(0) === mod.imported.charAt(0).toLowerCase() ? `ember${local}` : `Ember${local}`;
         }
         mod.local = local;
       }

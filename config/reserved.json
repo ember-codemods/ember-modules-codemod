@@ -199,5 +199,6 @@
   "btoa",
   "indexedDB",
   "webkitIndexedDB",
-  "Router"
+  "Router",
+  "keys"
 ]
