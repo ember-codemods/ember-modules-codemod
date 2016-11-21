@@ -277,13 +277,6 @@ function transform(file, api, options) {
           delete body[1].comments;
           mod.node = importStatement;
         }
-      } else {
-        if(!isUsedModule(root, mod)){
-          root.find(j.ImportDeclaration, {
-              source: { value: mod.source }
-            })
-            .remove();
-        }
       }
     });
   }
