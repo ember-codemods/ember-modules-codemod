@@ -1,9 +1,11 @@
 import { on as onEvent } from "@ember/object/evented";
+import { run } from "@ember/runloop";
 import { isEmpty, isNone } from "@ember/utils";
 import $ from "jquery";
 import { computed, observer, get } from "@ember/object";
-import { readOnly, notEmpty } from "@ember/object/computed";
+import { readOnly } from "@ember/object/computed";
 import Component from "@ember/component";
+import Ember from 'ember';
 
 const { String: { htmlSafe } } = Ember;
 
@@ -28,7 +30,9 @@ export default Component.extend(
 
     text: readOnly('topic.text'),
 
-    hasText: notEmpty('topic.text'),
+    // Unknown submodule will force the import of
+    // parent namespace
+    hasText: run.unknownModule('topic.text'),
 
     /**
      * common case for fucntion listening to a

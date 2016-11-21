@@ -80,7 +80,7 @@ function transform(file, api, options) {
         // `computed` for `computed.unknownModule`
         let namespaceReplacements = usageOfNamespace.reduce(findNamespaceReplacement(property, mappings), []);
 
-        // Mark this namespace for prune if it is not used
+        // Mark this namespace declaration for prune if it is not used
         // or we can replace it everywhere
         if (usageOfNamespace.length === 0 ||
             usageOfNamespace.length === namespaceReplacements.length){
@@ -90,40 +90,8 @@ function transform(file, api, options) {
         // Actually replace namespace usages
         applyReplacements(namespaceReplacements);
 
-        debugger
-        let propAlias = property.value.name;
-        let propName = property.key.name;
-
-        let usageOFExpression = findUsageOfDestructuredExpression(root)(propAlias);
-        let propertyUsedAsExpression = !!usageOFExpression.length;
-        let canReplaceDeclaration = propName in mappings;
-
-        if (!propertyUsedAsExpression){
-          property['markedForDelete'] &= true;
-
-        } else if (canReplaceDeclaration){
-          let mapping = mappings[propName];
-          let mod = mapping.getModule();
-          if (!mod.local) {
-            // Ember.computed.or => or
-            let local = propAlias;
-            if (includes(RESERVED, local)) {
-              local = `Ember${local}`;
-            }
-            mod.local = local;
-          }
-          property['markedForDelete'] &= true;
-
-        } else {
-          let expressionName = propName;
-          usageOFExpression.forEach((expressionPath)=>{
-            let context = extractSourceContext(expressionPath);
-            let lineNumber = expressionPath.value.loc.start.line;
-            warnings.push([MISSING_EXPRESSION_WARNING, expressionName, lineNumber, file.path, context]);
-          });
-
-          property['markedForDelete'] = false;
-        }
+        // Try to replace usages of module as an expression/fucntion
+        replaceExpression(mappings, property);
 
       });
     });
@@ -502,9 +470,11 @@ function transform(file, api, options) {
     };
   }
 
-  function findNamespaceReplacement(namespaceNode, mappings){
+  function findNamespaceReplacement(namespaceDeclaration, mappings){
     return (replacements, path)=>{
 
+      let namespaceAlias = namespaceDeclaration.value.name;
+      let namespaceName = namespaceDeclaration.key.name;
       let namespace = path.node.object.name;
       let candidates = expandMemberExpressions(path)
                         .map(decorateNamespaceCandidates(namespace))
@@ -513,8 +483,16 @@ function transform(file, api, options) {
       let found = candidates.find(([_, propertyPath]) => {
         return propertyPath in mappings;
       });
+      if(found[1] === namespace){
+        // No need for a replacement, just include
+        // the corresponding module is enough.
+        // Also candidate this namespace for prune
+        let mapping = mappings[namespaceName];
+        includeModuleFromMappping(mapping, namespaceAlias);
 
-      if(!found){
+        namespaceDeclaration['markedForDelete'] = true;
+
+      } else if(!found){
         // We don't have a mapping for neither the namespace nor
         // the nested property
         let context = extractSourceContext(path);
@@ -523,16 +501,8 @@ function transform(file, api, options) {
       } else {
         let [nodePath, propertyPath] = found;
         let mapping = mappings[propertyPath];
+        let mod = includeModuleFromMappping(mapping, propertyPath.split(".").slice(-1)[0]);
 
-        let mod = mapping.getModule();
-        if (!mod.local) {
-          // Ember.computed.or => or
-          let local = propertyPath.split(".").slice(-1)[0];
-          if (includes(RESERVED, local)) {
-            local = `Ember${local}`;
-          }
-          mod.local = local;
-        }
         replacements.push(new Replacement(nodePath, mod));
       }
 
@@ -566,9 +536,20 @@ function transform(file, api, options) {
       }
     });
 
+    let usageOfModuleDeclarations = root.find(j.VariableDeclaration, {
+      declarations: [{
+        init: {
+           name: module.local
+        }
+      }]
+    });
+    let usageOfDirectModuleExport = root.find(j.ExportDefaultDeclaration, {declaration: {name: module.local}});
+
     return !!usageOfModuleFunction.length ||
             !!usageOfModuleProperty.length ||
-            !!usageOfModuleExpression.length;
+            !!usageOfModuleExpression.length ||
+            !!usageOfModuleDeclarations.length ||
+            !!usageOfDirectModuleExport.length;
   }
 
   function cleanupDestructuredDeclarations(declarations){
@@ -583,6 +564,50 @@ function transform(file, api, options) {
         path.node.declarations[0].id.properties = keepProps;
       }
     });
+  }
+
+  function includeModuleFromMappping(mapping, localModuleAlias){
+    let mod = mapping.getModule();
+    if (!mod.local) {
+      // Ember.computed.or => or
+      let local = localModuleAlias;
+      if (includes(RESERVED, local)) {
+        local = `Ember${local}`;
+      }
+      mod.local = local;
+    }
+    return mod;
+  }
+
+  function replaceExpression(mappings, propertyDeclaration){
+    let propAlias = propertyDeclaration.value.name;
+    let propName = propertyDeclaration.key.name;
+
+    let usageOFExpression = findUsageOfDestructuredExpression(root)(propAlias);
+    let propertyUsedAsExpression = !!usageOFExpression.length;
+    let canReplaceDeclaration = propName in mappings;
+
+    if (!propertyUsedAsExpression){
+      // Candidate for delete only if namespace analysis
+      // gave the same result
+      propertyDeclaration['markedForDelete'] &= true;
+
+    } else if (canReplaceDeclaration){
+      let mapping = mappings[propName];
+      includeModuleFromMappping(mapping, propAlias);
+
+      propertyDeclaration['markedForDelete'] = true;
+
+    } else {
+      let expressionName = propName;
+      usageOFExpression.forEach((expressionPath)=>{
+        let context = extractSourceContext(expressionPath);
+        let lineNumber = expressionPath.value.loc.start.line;
+        warnings.push([MISSING_EXPRESSION_WARNING, expressionName, lineNumber, file.path, context]);
+      });
+
+      propertyDeclaration['markedForDelete'] = false;
+    }
   }
 }
 

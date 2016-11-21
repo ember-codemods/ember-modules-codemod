@@ -9,7 +9,8 @@ const {
   isEmpty,
   observer,
   get,
-  isNone
+  isNone,
+  run
 } = Ember;
 
 const { on: onEvent } = Ember;
@@ -35,9 +36,11 @@ export default Ember.Component.extend(
       }
     ),
 
-    // text: computed.readOnly('topic.text'),
+    text: computed.readOnly('topic.text'),
 
-    hasText: Ember.computed.unknownModule('topic.text'),
+    // Unknown submodule will force the import of
+    // parent namespace
+    hasText: run.unknownModule('topic.text'),
 
     /**
      * common case for fucntion listening to a
