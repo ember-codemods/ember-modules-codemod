@@ -277,6 +277,13 @@ function transform(file, api, options) {
           delete body[1].comments;
           mod.node = importStatement;
         }
+      } else {
+        if(!isUsedModule(root, mod)){
+          root.find(j.ImportDeclaration, {
+              source: { value: mod.source }
+            })
+            .remove();
+        }
       }
     });
   }
@@ -511,38 +518,8 @@ function transform(file, api, options) {
   }
 
   function isUsedModule(root, module){
-    let usageOfModuleExpression = root.find(j.MemberExpression, {
-      object: {
-        name: module.local
-      }
-    });
 
-    let usageOfModuleFunction = root.find(j.CallExpression, {
-      callee: {
-        name: module.local
-      }
-    });
-
-    let usageOfModuleProperty = root.find(j.Property, {
-      key: {
-        name: module.local
-      }
-    });
-
-    let usageOfModuleDeclarations = root.find(j.VariableDeclaration, {
-      declarations: [{
-        init: {
-           name: module.local
-        }
-      }]
-    });
-    let usageOfDirectModuleExport = root.find(j.ExportDefaultDeclaration, {declaration: {name: module.local}});
-
-    return !!usageOfModuleFunction.length ||
-            !!usageOfModuleProperty.length ||
-            !!usageOfModuleExpression.length ||
-            !!usageOfModuleDeclarations.length ||
-            !!usageOfDirectModuleExport.length;
+    return root.find(j.Identifier, {name: module.local}).size() > 1;
   }
 
   function cleanupDestructuredDeclarations(declarations){
