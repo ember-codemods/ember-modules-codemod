@@ -6,6 +6,8 @@ import { computed, observer, get } from "@ember/object";
 import { readOnly } from "@ember/object/computed";
 import Component from "@ember/component";
 import Ember from 'ember';
+//unused module should be removed, along with leading comment
+import layout from '../templates/component/destructured-declaration';
 
 const { String: { htmlSafe } } = Ember;
 
