@@ -6,7 +6,7 @@ const LOG_FILE = "ember-modules-codemod.tmp." + process.pid;
 const ERROR_WARNING = 1;
 const MISSING_EXPRESSION_WARNING = 2;
 const MISSING_NAMESPACE_WARNING = 3;
-const UNSUPPORTED_DESTRUCTURING = 4
+const UNSUPPORTED_DESTRUCTURING = 4;
 const MISSING_GLOBAL_WARNING = 5;
 
 module.exports = transform;
@@ -199,9 +199,7 @@ function transform(file, api, options) {
         // Ember.computed.or => or
         let local = propertyPath.split(".").slice(-1)[0];
         if (includes(RESERVED, local)) {
-          // Prevent jshint errors for Capitalized functions
-          // (considered as constructors)
-          local = mod.imported.charAt(0) === mod.imported.charAt(0).toLowerCase() ? `ember${local}` : `Ember${local}`;
+          local = `Ember${local}`;
         }
         mod.local = local;
       }
