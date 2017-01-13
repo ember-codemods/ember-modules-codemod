@@ -91,6 +91,7 @@
   "HashLocation": ["@ember/routing/hash-location"],
   "HistoryLocation": ["@ember/routing/history-location"],
   "NoneLocation": ["@ember/routing/none-location"],
+  "LinkComponent": ["@ember/routing/link-component"],
   "Map": ["@ember/map"],
   "MapWithDefault": ["@ember/map/with-default"],
   "Enumerable": ["@ember/enumerable"],
