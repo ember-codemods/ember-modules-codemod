@@ -133,6 +133,7 @@
   "isPresent": ["@ember/utils", "isPresent"],
   "tryInvoke": ["@ember/utils", "tryInvoke"],
   "typeOf": ["@ember/utils", "typeOf"],
+  "compare": ["@ember/utils", "compare"],
   "$": ["jquery"],
   "RSVP": ["rsvp"]
 }
