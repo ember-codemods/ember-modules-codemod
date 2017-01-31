@@ -17,8 +17,8 @@ export default Ember.Component.extend({
 Into this:
 
 ```js
-import Component from "@ember/component";
-import { or } from "@ember/object/computed"
+import Component from '@ember/component';
+import { or } from '@ember/object/computed'
 
 export default Component.extend({
   isAnimal: or('isDog', 'isCat')
@@ -132,9 +132,9 @@ version, in the case of default exports).
 
 A few examples:
 
-1. `Ember.Application` ⟹ `"Application": ["@ember/application"]` ⟹ `import Application from "@ember/application"`
-1. `Ember.computed.or` ⟹ `"computed.or": ["@ember/object/computed", "or"]` ⟹ `import { or } from "@ember/object/computed"`
-1. `Ember.DefaultResolver` ⟹ `"DefaultResolver": ["@ember/application/globals-resolver", null, "GlobalsResolver"]` ⟹ `import GlobalsResolver from "@ember/application/globals-resolver"`
+1. `Ember.Application` ⟹ `'Application': ['ember-application']` ⟹ `import Application from 'ember-application'`
+1. `Ember.computed.or` ⟹ `'computed.or': ['ember-object/computed', 'or']` ⟹ `import { or } from 'ember-object/computed'`
+1. `Ember.DefaultResolver` ⟹ `'DefaultResolver': ['ember-application/globals-resolver', null, 'GlobalsResolver']` ⟹ `import GlobalsResolver from 'ember-application/globals-resolver'`
 
 ### Known Issues
 
@@ -144,4 +144,4 @@ addressed in the future. PRs welcome!
 * Apps using `ember-cli-shims` are not updated.
 * All long imports are beautified, even non-Ember ones.
 * Destructured assignment to the Ember global is not handled (e.g. `const { underscore } = Ember`).
-* Namespace imports (`import * as bar from "foo"`) are not supported.
+* Namespace imports (`import * as bar from 'foo'`) are not supported.

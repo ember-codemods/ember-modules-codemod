@@ -1,3 +1,3 @@
-import EmberObject, { computed } from "@ember/object";
+import EmberObject, { computed } from '@ember/object';
 computed;
 EmberObject;
