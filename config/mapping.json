@@ -16,6 +16,7 @@
   "ArrayProxy": ["@ember/array/proxy"],
   "Object": ["@ember/object"],
   "get": ["@ember/object", "get"],
+  "getWithDefault": ["@ember/object", "getWithDefault"],
   "set": ["@ember/object", "set"],
   "getProperties": ["@ember/object", "getProperties"],
   "setProperties": ["@ember/object", "setProperties"],
