@@ -50,6 +50,15 @@ function transform(file, api, options) {
     // imported binding (`whatever`).
     applyReplacements(replacements);
 
+    // Finally remove global Ember import
+    const globalEmber = root.find(j.ImportDeclaration, {
+      source: {
+        value: 'ember',
+      },
+    });
+
+    globalEmber.remove();
+
     // jscodeshift is not so great about giving us control over the resulting whitespace.
     // We'll use a regular expression to try to improve the situation (courtesy of @rwjblue).
     source = beautifyImports(root.toSource());
