@@ -35,6 +35,17 @@ function transform(file, api) {
     // global into the module syntax.
     let mappings = buildMappings(modules);
 
+    const extraImportMethods = [
+      'get',
+      'getWithDefault',
+      'getProperties',
+      'set',
+      'setProperties',
+    ];
+
+    // Add any getter or setter imports
+    createModulesFromList(root, mappings, extraImportMethods);
+
     // Scan the source code, looking for any instances of the `Ember` identifier
     // used as the root of a property lookup. If they match one of the provided
     // mappings, save it off for replacement later.
@@ -50,14 +61,7 @@ function transform(file, api) {
     // imported binding (`whatever`).
     applyReplacements(replacements);
 
-    // Replace any getters or setters with imported version
-    replaceIdentifiers(root, mappings, [
-      'get',
-      'getWithDefault',
-      'getProperties',
-      'set',
-      'setProperties',
-    ]);
+    replaceIdentifiers(root, mappings, extraImportMethods);
 
     // jscodeshift is not so great about giving us control over the resulting whitespace.
     // We'll use a regular expression to try to improve the situation (courtesy of @rwjblue).
@@ -177,17 +181,22 @@ function transform(file, api) {
     };
   }
 
+  function createModulesFromList(root, mappings, identifierNames) {
+    identifierNames.forEach((identifierName) => {
+      if (findMemberExpression(root, identifierName).size()) {
+        createReplacement(mappings, identifierName);
+      }
+    });
+  }
+
   function replaceIdentifiers(root, mappings, identifierNames)  {
     let replacements = 0;
+
     identifierNames.forEach((identifierName) => {
-      let nodes = findMemberExpression(root, identifierName);
-
-      if (nodes.size()) {
+      findMemberExpression(root, identifierName).forEach((exp) => {
         replacements += 1;
-        createReplacement(mappings, identifierName);
-
-        nodes.forEach(replaceExpression);
-      }
+        replaceExpression(exp);
+      });
     });
 
     // recursively call in case of unusual but legal code that chains expressions

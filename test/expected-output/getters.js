@@ -1,10 +1,10 @@
-import {
-  computed,
-  get,
-  getProperties,
-  getWithDefault
-} from "@ember/object";
 import Component from "@ember/component";
+import {
+  get,
+  getWithDefault,
+  getProperties,
+  computed
+} from "@ember/object";
 export default Component.extend({
   someComputed: computed('a', 'b', 'c', 'd', function() {
     const a = get(this, 'a');

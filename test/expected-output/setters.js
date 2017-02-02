@@ -1,5 +1,5 @@
-import { get, set, setProperties } from "@ember/object";
 import Component from "@ember/component";
+import { get, set, setProperties } from "@ember/object";
 export default Component.extend({
   someFunc(a) {
     set(this, 'fooProperty', 'bar');
