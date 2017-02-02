@@ -41,14 +41,6 @@ function transform(file, api) {
     let replacements = findUsageOfEmberGlobal(root)
       .map(findReplacementAndCreateModules(mappings));
 
-    replaceIdentifiers(root, mappings, [
-      'get',
-      'getWithDefault',
-      'getProperties',
-      'set',
-      'setProperties',
-    ]);
-
     // Now that we've identified all of the replacements that we need to do, we'll
     // make sure to either add new `import` declarations, or update existing ones
     // to add new named exports or the default export.
@@ -57,6 +49,15 @@ function transform(file, api) {
     // Actually go through and replace each usage of `Ember.whatever` with the
     // imported binding (`whatever`).
     applyReplacements(replacements);
+
+    // Replace any getters or setters with imported version
+    replaceIdentifiers(root, mappings, [
+      'get',
+      'getWithDefault',
+      'getProperties',
+      'set',
+      'setProperties',
+    ]);
 
     // jscodeshift is not so great about giving us control over the resulting whitespace.
     // We'll use a regular expression to try to improve the situation (courtesy of @rwjblue).

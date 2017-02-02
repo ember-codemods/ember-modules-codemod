@@ -1,8 +1,8 @@
 import {
   computed,
   get,
-  getWithDefault,
-  getProperties
+  getProperties,
+  getWithDefault
 } from "@ember/object";
 import Component from "@ember/component";
 export default Component.extend({
@@ -12,6 +12,10 @@ export default Component.extend({
     const f = get(get(this, 'd'), 'g');
     const h = get(f, 'i');
     const j = getProperties(h, 'k', 'l', 'm');
+    const n = get(this, 'o');
+    const p = getProperties(this, 'q', 'r');
+    const s = getWithDefault(this, 't', 'u');
+    const v = get(h, 'w');
 
     return a + getWithDefault(this, 'b', 'test');
   }),
