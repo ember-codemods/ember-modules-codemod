@@ -13,7 +13,7 @@ module.exports = transform;
  * It scans JavaScript files that use the Ember global and updates
  * them to use the module syntax from the proposed new RFC.
  */
-function transform(file, api, options) {
+function transform(file, api) {
   let source = file.source;
   let j = api.jscodeshift;
 
@@ -35,11 +35,22 @@ function transform(file, api, options) {
     // global into the module syntax.
     let mappings = buildMappings(modules);
 
+    const extraImportMethods = [
+      'get',
+      'getWithDefault',
+      'getProperties',
+      'set',
+      'setProperties',
+    ];
+
+    // Add any getter or setter imports
+    createModulesFromList(root, mappings, extraImportMethods);
+
     // Scan the source code, looking for any instances of the `Ember` identifier
     // used as the root of a property lookup. If they match one of the provided
     // mappings, save it off for replacement later.
     let replacements = findUsageOfEmberGlobal(root)
-      .map(findReplacement(mappings));
+      .map(findReplacementAndCreateModules(mappings));
 
     // Now that we've identified all of the replacements that we need to do, we'll
     // make sure to either add new `import` declarations, or update existing ones
@@ -49,6 +60,8 @@ function transform(file, api, options) {
     // Actually go through and replace each usage of `Ember.whatever` with the
     // imported binding (`whatever`).
     applyReplacements(replacements);
+
+    replaceIdentifiers(root, mappings, extraImportMethods);
 
     // jscodeshift is not so great about giving us control over the resulting whitespace.
     // We'll use a regular expression to try to improve the situation (courtesy of @rwjblue).
@@ -103,12 +116,40 @@ function transform(file, api, options) {
     .paths();
   }
 
+  function findMemberExpression(root, identifierName) {
+    return root.find(j.CallExpression, {
+      callee: {
+        type: 'MemberExpression',
+        property: {
+          type: 'Identifier',
+          name: identifierName,
+        }
+      },
+    });
+  }
+
+  function createReplacement(mappings, propertyPath, nodePath) {
+    let mapping = mappings[propertyPath];
+
+    let mod = mapping.maybeCreateModule();
+    if (!mod.local) {
+      // Ember.computed.or => or
+      let local = propertyPath.split(".").slice(-1)[0];
+      if (includes(RESERVED, local)) {
+        local = `Ember${local}`;
+      }
+      mod.local = local;
+    }
+
+    return new Replacement(nodePath, mod);
+  }
+
   /**
    * Returns a function that can be used to map an array of MemberExpression
    * nodes into Replacement instances. Does the actual work of verifying if the
    * `Ember` identifier used in the MemberExpression is actually replaceable.
   */
-  function findReplacement(mappings) {
+  function findReplacementAndCreateModules(mappings) {
     return function(path) {
       // Expand the full set of property lookups. For example, we don't want
       // just "Ember.computed"—we want "Ember.computed.or" as well.
@@ -136,20 +177,39 @@ function transform(file, api, options) {
       }
 
       let [nodePath, propertyPath] = found;
-      let mapping = mappings[propertyPath];
-
-      let mod = mapping.getModule();
-      if (!mod.local) {
-        // Ember.computed.or => or
-        let local = propertyPath.split(".").slice(-1)[0];
-        if (includes(RESERVED, local)) {
-          local = `Ember${local}`;
-        }
-        mod.local = local;
-      }
-
-      return new Replacement(nodePath, mod);
+      return createReplacement(mappings, propertyPath, nodePath);
     };
+  }
+
+  function createModulesFromList(root, mappings, identifierNames) {
+    identifierNames.forEach((identifierName) => {
+      if (findMemberExpression(root, identifierName).size()) {
+        createReplacement(mappings, identifierName);
+      }
+    });
+  }
+
+  function replaceIdentifiers(root, mappings, identifierNames)  {
+    let replacements = 0;
+
+    identifierNames.forEach((identifierName) => {
+      findMemberExpression(root, identifierName).forEach((exp) => {
+        replacements += 1;
+        replaceExpression(exp);
+      });
+    });
+
+    // recursively call in case of unusual but legal code that chains expressions
+    if (replacements > 0) {
+      replaceIdentifiers(root, mappings, identifierNames);
+    }
+  }
+
+  function replaceExpression(path) {
+    let args = [path.value.callee.object].concat(path.value.arguments);
+    let identifier = j.identifier(path.value.callee.property.name);
+    let callExpression = j.callExpression(identifier, args);
+    j(path).replaceWith(callExpression);
   }
 
   function extractSourceContext(path) {
@@ -413,7 +473,7 @@ class ModuleRegistry {
     return mod;
   }
 
-  get(source, imported, local) {
+  maybeCreate(source, imported, local) {
     let mod = this.find(source, imported, local);
     if (!mod) {
       mod = this.create(source, imported, local);
@@ -451,7 +511,7 @@ class Mapping {
     this.registry = registry;
   }
 
-  getModule() {
-    return this.registry.get(this.source, this.imported, this.local);
+  maybeCreateModule() {
+    return this.registry.maybeCreate(this.source, this.imported, this.local);
   }
 }
