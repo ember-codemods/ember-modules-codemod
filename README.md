@@ -164,9 +164,9 @@ version, in the case of default exports).
 
 A few examples:
 
-1. `Ember.Application` ⟹ `"Application": ["ember-application"]` ⟹ `import Application from "ember-application"`
-1. `Ember.computed.or` ⟹ `"computed.or": ["ember-object/computed", "or"]` ⟹ `import { or } from "ember-object/computed"`
-1. `Ember.DefaultResolver` ⟹ `"DefaultResolver": ["ember-application/globals-resolver", null, "GlobalsResolver"]` ⟹ `import GlobalsResolver from "ember-application/globals-resolver"`
+1. `Ember.Application` ⟹ `"Application": ["@ember/application"]` ⟹ `import Application from "@ember/application"`
+1. `Ember.computed.or` ⟹ `"computed.or": ["@ember/object/computed", "or"]` ⟹ `import { or } from "@ember/object/computed"`
+1. `Ember.DefaultResolver` ⟹ `"DefaultResolver": ["@ember/application/globals-resolver", null, "GlobalsResolver"]` ⟹ `import GlobalsResolver from "@ember/application/globals-resolver"`
 
 ### Reserved Words
 
@@ -174,7 +174,7 @@ In some cases, Ember's names may conflict with names built in to the language.
 In those cases, we should not inadvertently shadow those identifiers.
 
 ```js
-import Object from "ember-object";
+import Object from "@ember/object";
 
 // ...later
 Object.keys(obj);
@@ -183,8 +183,8 @@ Object.keys(obj);
 
 A list of reserved identifiers (including `Object`) is included in
 `config/reserved.json`. Anything that appears in this list will be prefixed with
-`Ember`; so, for example, `import Object from "ember-object"` would become
-`import EmberObject from "ember-object"`.
+`Ember`; so, for example, `import Object from "@ember/object"` would become
+`import EmberObject from "@ember/object"`.
 
 ### Known Issues
 
