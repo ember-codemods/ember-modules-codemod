@@ -93,7 +93,7 @@ scripts/generate-by-module-markdown-table | pbcopy
 
 #### Generate Package List
 
-Scans `mapping.json` and builds a list of all unique top-level package names,
+Scans `ember-rfc176-data` and builds a list of all unique top-level package names,
 then prints it to `stdout`.
 
 ```sh
@@ -148,8 +148,8 @@ can ensure that future changes do not cause a regression.
 ### Module Changes
 
 If you want to change how globals are mapped into modules, you will find
-the data structure that controls that in `config/mapping.json`. The structure
-is:
+the data structure that controls that in the `ember-rfc176-data` npm package.
+The structure is:
 
 ```js
 {
