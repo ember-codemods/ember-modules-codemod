@@ -1,6 +1,6 @@
 const fs       = require("fs");
 const RESERVED = require("./config/reserved");
-const MAPPINGS = require("./config/mapping");
+const MAPPINGS = require("ember-rfc176-data");
 
 const LOG_FILE = "ember-modules-codemod.tmp." + process.pid;
 const ERROR_WARNING = 1;

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-let mapping = require("../config/mapping");
+let mapping = require("ember-rfc176-data");
 let reserved = require("../config/reserved");
 
 let maxBefore = 0;
