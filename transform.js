@@ -39,7 +39,7 @@ function transform(file, api, options) {
     // used as the root of a property lookup. If they match one of the provided
     // mappings, save it off for replacement later.
     let replacements = findUsageOfEmberGlobal(root)
-      .map(findReplacement(mappings));
+      .map(findReplacement(root, mappings));
 
     // Now that we've identified all of the replacements that we need to do, we'll
     // make sure to either add new `import` declarations, or update existing ones
@@ -103,12 +103,34 @@ function transform(file, api, options) {
     .paths();
   }
 
+  function matchingVariableNotAlias(root, name) {
+    let matchingDeclarations = root.find(j.VariableDeclarator, {
+      id: {
+        type: 'Identifier',
+        name,
+      },
+    });
+
+    let matchingAliases = matchingDeclarations.filter((element) => {
+      let isExpression =
+        element.value.init.type === 'MemberExpression';
+      let isEmberGlobal =
+        isExpression && element.value.init.object.name === 'Ember';
+      let isAlias =
+        isEmberGlobal && element.value.init.property.name === name;
+
+      return isAlias;
+    });
+
+    return matchingDeclarations.size() !== matchingAliases.size();
+  }
+
   /**
    * Returns a function that can be used to map an array of MemberExpression
    * nodes into Replacement instances. Does the actual work of verifying if the
    * `Ember` identifier used in the MemberExpression is actually replaceable.
   */
-  function findReplacement(mappings) {
+  function findReplacement(root, mappings) {
     return function(path) {
       // Expand the full set of property lookups. For example, we don't want
       // just "Ember.computed"—we want "Ember.computed.or" as well.
@@ -142,7 +164,7 @@ function transform(file, api, options) {
       if (!mod.local) {
         // Ember.computed.or => or
         let local = propertyPath.split(".").slice(-1)[0];
-        if (includes(RESERVED, local)) {
+        if (matchingVariableNotAlias(root, local) || includes(RESERVED, local)) {
           local = `Ember${local}`;
         }
         mod.local = local;
