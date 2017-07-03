@@ -110,7 +110,7 @@ function transform(file, api, options) {
     let defaultImport = globalEmber.find(j.Identifier);
     let defaultMemberName = defaultImport.size() && defaultImport.get(0).node.name;
 
-    return defaultMemberName || null;
+    return defaultMemberName || "Ember";
   }
 
   /*
