@@ -35,10 +35,12 @@ function transform(file, api, options) {
     // global into the module syntax.
     let mappings = buildMappings(modules);
 
+    let globalEmber = getGlobalEmberName(root);
+
     // Scan the source code, looking for any instances of the `Ember` identifier
     // used as the root of a property lookup. If they match one of the provided
     // mappings, save it off for replacement later.
-    let replacements = findUsageOfEmberGlobal(root)
+    let replacements = findUsageOfEmberGlobal(root, globalEmber)
       .map(findReplacement(mappings));
 
     // Now that we've identified all of the replacements that we need to do, we'll
@@ -49,6 +51,9 @@ function transform(file, api, options) {
     // Actually go through and replace each usage of `Ember.whatever` with the
     // imported binding (`whatever`).
     applyReplacements(replacements);
+
+    // Finally remove global Ember import if no globals left
+    removeGlobalEmber(root, globalEmber);
 
     // jscodeshift is not so great about giving us control over the resulting whitespace.
     // We'll use a regular expression to try to improve the situation (courtesy of @rwjblue).
@@ -88,19 +93,39 @@ function transform(file, api, options) {
     return mappings;
   }
 
+  function getGlobalEmberImport(root) {
+    return root.find(j.ImportDeclaration, {
+      specifiers: [{
+        type: "ImportDefaultSpecifier",
+      }],
+      source: {
+        value: "ember"
+      }
+    });
+  }
+
+  function getGlobalEmberName(root) {
+    const globalEmber = getGlobalEmberImport(root);
+
+    let defaultImport = globalEmber.find(j.Identifier);
+    let defaultMemberName = defaultImport.size() && defaultImport.get(0).node.name;
+
+    return defaultMemberName || null;
+  }
+
   /*
   * Finds all uses of a property looked up on the Ember global (i.e.,
   * `Ember.something`). Makes sure that it is actually the Ember global
   * and not another variable that happens to be called `Ember`.
   */
-  function findUsageOfEmberGlobal(root) {
-    return root.find(j.MemberExpression, {
+  function findUsageOfEmberGlobal(root, globalEmber) {
+    let emberUsages = root.find(j.MemberExpression, {
       object: {
-        name: "Ember"
-      }
-    })
-    .filter(isEmberGlobal(root))
-    .paths();
+        name: globalEmber,
+      },
+    });
+
+    return emberUsages.filter(isEmberGlobal(globalEmber)).paths();
   }
 
   /**
@@ -177,6 +202,14 @@ function transform(file, api, options) {
           nodePath.replace(j.identifier(local));
         }
       });
+  }
+
+  function removeGlobalEmber(root, globalEmber) {
+    let remainingGlobals = findUsageOfEmberGlobal(root, globalEmber);
+
+    if(!remainingGlobals.length) {
+      getGlobalEmberImport(root).remove();
+    }
   }
 
   function isAliasVariableDeclarator(nodePath, local) {
@@ -330,19 +363,10 @@ function transform(file, api, options) {
     return declaration;
   }
 
-  function isEmberGlobal(root) {
+  function isEmberGlobal(name) {
     return function(path) {
-      return !path.scope.declares("Ember") || root.find(j.ImportDeclaration, {
-        specifiers: [{
-          type: "ImportDefaultSpecifier",
-          local: {
-            name: "Ember"
-          }
-        }],
-        source: {
-          value: "ember"
-        }
-      }).size() > 0;
+      let localEmber = !path.scope.isGlobal && path.scope.declares(name);
+      return !localEmber;
     };
   }
 

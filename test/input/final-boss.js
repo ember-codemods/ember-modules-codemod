@@ -12,6 +12,7 @@
 //  * `Ember` must be the root of property lookups (no `foo.Ember.bar`)
 import FemberObject from "@ember/object";
 import { or as bore } from "@ember/object/computed";
+import Ember from 'ember';
 
 let bar = foo.Ember.computed.or;
 
