@@ -208,11 +208,12 @@ function transform(file, api, options) {
 
           if (imported === 'default') {
             specifier = j.importDefaultSpecifier(j.identifier(local));
+            declaration.get("specifiers").unshift(specifier);
           } else {
             specifier = j.importSpecifier(j.identifier(imported), j.identifier(local));
+            declaration.get("specifiers").push(specifier);
           }
 
-          declaration.get("specifiers").push(specifier);
           mod.node = declaration.at(0);
         } else {
           let importStatement = createImportStatement(source, imported, local);
