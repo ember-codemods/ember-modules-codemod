@@ -2,3 +2,12 @@ language: node_js
 node_js:
   - "4"
   - "6"
+
+deploy:
+  provider: npm
+  email: stefan.penner+ember-cli@gmail.com
+  api_key:
+    secure: n5Zt1d3Pw2o0E2WP/VAFqJvsq/rK4oJP+2ixrlBAf4WXm1cBQrpoc6+09YuMkqn7Z3S3i3N1WYq7Ebk8If/U3XJ9kdOZSHpsOAU3Wb5e9mWZTv1rdW7A77HLTMcqyURltkpPryHbToUvazfTOT4RUcFPKRqxzQ7LpU3Nj5jpbAylS959aCfdGKAG3MHy4kLqoMQj+x7UxunkL1/hyTCfHAWShwprnxodU52ywdklNErGnvi/giXxCpXDSn9mV3aJ+c//6wshG0yhasmsuZZ14O894qge4OUTkqZwoRL7EGSfRxK1P/0CIWQS3ypMqS7KjdokaPlraZ66GDTpopI2qHpja93DH3b/xcmmntnQ1sfhBtZpY9+5tR2EqabWN6dEBguj+0RaP+3VZuXQrxwtuQ5xND5ib4wM1VZKSbuprwTVqSzIPO3ZW9XH/f4I3GXh44VaFMSU360EGrbxg8VWihHOlurCrxuClsyOME69C1YYXMPMlBUGCTHhTlUZJLItQweLh6JYI7GDha/GPn04VqtHwvMJ4Rz0un+ipJQ9Lj9q6GQo9vHybCdWwxZsl3Rz7yv2q1bY54o9pxCGHT8rAJviEyVLgZk53gRCZ+oxu4a3tRGoLUP/y6uSQG1yaSopRRQwjIxwtYKvq8cK+uKFNciOglf+2LZiBoPf7yDVS54=
+  on:
+    tags: true
+    repo: ember-cli/ember-modules-codemod
