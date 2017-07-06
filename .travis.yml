@@ -15,3 +15,9 @@ deploy:
   on:
     tags: true
     repo: ember-cli/ember-modules-codemod
+
+install:
+  - yarn install --no-lockfile
+
+script:
+  - yarn test
