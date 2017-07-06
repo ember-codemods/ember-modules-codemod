@@ -68,38 +68,6 @@ jscodeshift -t ../ember-modules-codemod/transform.js app
 Note that invoking the transform directly disables the generation of the
 Markdown report if any unknown globals are discovered.
 
-### Maybe Helpful Scripts
-
-I put a few scripts that I found useful while writing the RFC inside the
-`scripts` directory. Perhaps they will be useful for you as well.
-
-#### Generate Globals-to-Module Markdown Table
-
-Generates a Markdown-compatible table of globals and their updated module version, and
-prints it to `stdout`.
-
-```sh
-scripts/generate-markdown-table | pbcopy
-```
-
-#### Generate Modules-by-Package Markdown Table
-
-Generates a Markdown-compatible table of modules, grouped by package, and their
-global equivalent, and prints it to `stdout`.
-
-```sh
-scripts/generate-by-module-markdown-table | pbcopy
-```
-
-#### Generate Package List
-
-Scans `ember-rfc176-data` and builds a list of all unique top-level package names,
-then prints it to `stdout`.
-
-```sh
-scripts/generate-package-list | pbcopy
-```
-
 ## Contributing
 
 ### Running Tests
@@ -167,24 +135,6 @@ A few examples:
 1. `Ember.Application` ⟹ `"Application": ["@ember/application"]` ⟹ `import Application from "@ember/application"`
 1. `Ember.computed.or` ⟹ `"computed.or": ["@ember/object/computed", "or"]` ⟹ `import { or } from "@ember/object/computed"`
 1. `Ember.DefaultResolver` ⟹ `"DefaultResolver": ["@ember/application/globals-resolver", null, "GlobalsResolver"]` ⟹ `import GlobalsResolver from "@ember/application/globals-resolver"`
-
-### Reserved Words
-
-In some cases, Ember's names may conflict with names built in to the language.
-In those cases, we should not inadvertently shadow those identifiers.
-
-```js
-import Object from "@ember/object";
-
-// ...later
-Object.keys(obj);
-// oops! TypeError: Object.keys is not a function
-```
-
-A list of reserved identifiers (including `Object`) is included in
-`config/reserved.json`. Anything that appears in this list will be prefixed with
-`Ember`; so, for example, `import Object from "@ember/object"` would become
-`import EmberObject from "@ember/object"`.
 
 ### Known Issues
 
