@@ -4,7 +4,10 @@ const MAPPINGS = require("ember-rfc176-data");
 
 const LOG_FILE = "ember-modules-codemod.tmp." + process.pid;
 const ERROR_WARNING = 1;
-const MISSING_GLOBAL_WARNING = 2;
+const MISSING_EXPRESSION_WARNING = 2;
+const MISSING_NAMESPACE_WARNING = 3;
+const UNSUPPORTED_DESTRUCTURING = 4;
+const MISSING_GLOBAL_WARNING = 5;
 
 module.exports = transform;
 
@@ -43,14 +46,67 @@ function transform(file, api, options) {
     let replacements = findUsageOfEmberGlobal(root, globalEmber)
       .map(findReplacement(mappings));
 
+
+
+    // Actually go through and replace each usage of `Ember.whatever` with the
+    // imported binding (`whatever`).
+    applyReplacements(replacements);
+
+
+
+    // Lookup for declarations of variables from the global ember namespace
+    // i.e. : `const {computed} = Ember`
+    let propertyDeclarations = findDestructuringOfNamespace(root, 'Ember');
+
+    // Go through all properties declared and look for a proper replacement
+    propertyDeclarations.forEach(function(path){
+      path.node.declarations[0].id.properties.forEach((property)=>{
+
+        // We do not support nested declarations yet. Skip it.
+        // i.e. const {computed: {readOnly}} = Ember;
+        if(property.value.properties){
+          let context = extractSourceContext(path);
+          let lineNumber = path.value.loc.start.line;
+          warnings.push([UNSUPPORTED_DESTRUCTURING, property.key.name, lineNumber, file.path, context]);
+
+          return;
+        }
+
+        // Check if property is used as a namespace.
+        let usageOfNamespace = findUsageOfDestructuredNamespace(root)(property);
+
+        // If used as namespace, find the most suitable
+        // replacement for either the namespace or the namespace
+        // propcerty used in the statement. i.e.
+        // `readOnly` for `computed.readOnly`
+        // `computed` for `computed.unknownModule`
+        let namespaceReplacements = usageOfNamespace.reduce(findNamespaceReplacement(property, mappings), []);
+
+        // Mark this namespace declaration for prune if it is not used
+        // or we can replace it everywhere
+        if (usageOfNamespace.length === 0 ||
+            usageOfNamespace.length === namespaceReplacements.length){
+          property['markedForDelete'] = true;
+        }
+
+        // Actually replace namespace usages
+        applyReplacements(namespaceReplacements);
+
+        // Try to replace usages of module as an expression/fucntion
+        replaceExpression(mappings, property);
+
+      });
+    });
+
+    // Remove repleacable variable/namespaces from
+    // declaration statements
+    cleanupDestructuredDeclarations(propertyDeclarations);
+
     // Now that we've identified all of the replacements that we need to do, we'll
     // make sure to either add new `import` declarations, or update existing ones
     // to add new named exports or the default export.
     updateOrCreateImportDeclarations(root, modules);
 
-    // Actually go through and replace each usage of `Ember.whatever` with the
-    // imported binding (`whatever`).
-    applyReplacements(replacements);
 
     // Finally remove global Ember import if no globals left
     removeGlobalEmber(root, globalEmber);
@@ -255,6 +311,13 @@ function transform(file, api, options) {
           delete body[1].comments;
           mod.node = importStatement;
         }
+      } else {
+        if(!isUsedModule(root, mod)){
+          root.find(j.ImportDeclaration, {
+              source: { value: mod.source }
+            })
+            .remove();
+        }
       }
     });
   }
@@ -395,10 +458,163 @@ function transform(file, api, options) {
       }
     });
   }
+
+
+  function findDestructuringOfNamespace(root, namespace){
+    return root.find(j.VariableDeclaration, {
+      declarations: [{
+        init: {
+           name: namespace
+        }
+      }]
+    })
+    // .filter(isEmberGlobal(root))
+    .paths();
+  }
+
+  function findUsageOfDestructuredNamespace(root){
+    return (property)=>{
+      let namespace = property.value;
+      return root.find(j.MemberExpression, {
+          object: {
+            name: namespace.name
+          }
+        })
+        .paths();
+    };
+  }
+
+  function findUsageOfDestructuredExpression(root){
+    return (expression)=>{
+      return root.find(j.CallExpression, {
+          callee: {
+            name: expression
+          }
+        })
+        .paths();
+    };
+  }
+
+  function findNamespaceReplacement(namespaceDeclaration, mappings){
+    return (replacements, path)=>{
+
+      let namespaceAlias = namespaceDeclaration.value.name;
+      let namespaceName = namespaceDeclaration.key.name;
+      let namespace = path.node.object.name;
+      let candidates = expandMemberExpressions(path)
+                        .map(decorateNamespaceCandidates(namespace))
+                        .concat([[path, namespace]]);
+
+      let found = candidates.find(([_, propertyPath]) => {
+        return propertyPath in mappings;
+      });
+      if(found[1] === namespace){
+        // No need for a replacement, just include
+        // the corresponding module is enough.
+        // Also candidate this namespace for prune
+        let mapping = mappings[namespaceName];
+        includeModuleFromMappping(mapping, namespaceAlias);
+
+        namespaceDeclaration['markedForDelete'] = true;
+
+      } else if(!found){
+        // We don't have a mapping for neither the namespace nor
+        // the nested property
+        let context = extractSourceContext(path);
+        let lineNumber = path.value.loc.start.line;
+        warnings.push([MISSING_NAMESPACE_WARNING, candidates[candidates.length-1][1], lineNumber, file.path, context]);
+      } else {
+        let [nodePath, propertyPath] = found;
+        let mapping = mappings[propertyPath];
+        let mod = includeModuleFromMappping(mapping, propertyPath.split(".").slice(-1)[0]);
+
+        replacements.push(new Replacement(nodePath, mod));
+      }
+
+      return replacements;
+    };
+  }
+
+  function decorateNamespaceCandidates(namespace){
+    return (candidate)=>{
+      candidate[candidate.length-1] = `${namespace}.${candidate[candidate.length-1]}`;
+      return candidate;
+    };
+  }
+
+  function isUsedModule(root, module){
+
+    return root.find(j.Identifier, {name: module.local}).size() > 1;
+  }
+
+  function cleanupDestructuredDeclarations(declarations){
+    declarations.forEach(function(path){
+      let keepProps = path.node.declarations[0].id.properties.filter((prop)=>{
+        return !prop.markedForDelete;
+      });
+
+      if (!keepProps.length){
+        path.prune();
+      } else {
+        path.node.declarations[0].id.properties = keepProps;
+      }
+    });
+  }
+
+  function includeModuleFromMappping(mapping, localModuleAlias){
+    let mod = mapping.getModule();
+    if (!mod.local) {
+      // Ember.computed.or => or
+      let local = localModuleAlias;
+      if (includes(RESERVED, local)) {
+        local = `Ember${local}`;
+      }
+      mod.local = local;
+    }
+    return mod;
+  }
+
+  function replaceExpression(mappings, propertyDeclaration){
+    let propAlias = propertyDeclaration.value.name;
+    let propName = propertyDeclaration.key.name;
+
+    let usageOFExpression = findUsageOfDestructuredExpression(root)(propAlias);
+    let usageOfDestructuredSubmodules = findDestructuringOfNamespace(root, propAlias);
+    let propertyUsedAsExpression = !!usageOFExpression.length || !!usageOfDestructuredSubmodules.length;
+    let canReplaceDeclaration = propName in mappings;
+
+    if (!propertyUsedAsExpression){
+      // Candidate for delete only if namespace analysis
+      // gave the same result
+      propertyDeclaration['markedForDelete'] &= true;
+
+    } else if (canReplaceDeclaration){
+      let mapping = mappings[propName];
+      includeModuleFromMappping(mapping, propAlias);
+
+      propertyDeclaration['markedForDelete'] = true;
+
+    } else {
+      let expressionName = propName;
+      usageOFExpression.forEach((expressionPath)=>{
+        let context = extractSourceContext(expressionPath);
+        let lineNumber = expressionPath.value.loc.start.line;
+        warnings.push([MISSING_EXPRESSION_WARNING, expressionName, lineNumber, file.path, context]);
+      });
+
+      propertyDeclaration['markedForDelete'] = false;
+    }
+  }
 }
 
 function includes(array, value) {
   return array.indexOf(value) > -1;
+}
+
+function flatten (list){
+  return list.reduce((a, b)=>{
+    return a.concat(Array.isArray(b) ? flatten(b) : b), [];
+  });
 }
 
 class ModuleRegistry {

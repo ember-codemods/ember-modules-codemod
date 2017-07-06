@@ -93,9 +93,16 @@ function buildReport() {
         let type = line[0];
         if (type === 1) {
           return runtimeErrorWarning(line);
+        } else if (type === 2){
+          return unknownExpressionWarning(line);
+        } else if (type === 3){
+          return unknownNamespaceWarning(line);
+        } else if (type === 4){
+          return unsupportedWarning(line);
         } else {
           return unknownGlobalWarning(line);
         }
+
       });
 
       fs.writeFileSync("MODULE_REPORT.md", "## Module Report\n" + report.join("\n"));
@@ -132,6 +139,48 @@ function unknownGlobalWarning(line) {
   return `### Unknown Global
 
 **Global**: \`Ember.${global}\`
+
+**Location**: \`${path}\` at line ${lineNumber}
+
+\`\`\`js
+${context}
+\`\`\`
+`;
+}
+
+function unknownNamespaceWarning(line) {
+  let [_, namespace, lineNumber, path, context] = line;
+  return `### Unknown Namespace
+
+**Namespace**: \`${namespace}.\`
+
+**Location**: \`${path}\` at line ${lineNumber}
+
+\`\`\`js
+${context}
+\`\`\`
+`;
+}
+
+function unknownExpressionWarning(line) {
+  let [_, expression, lineNumber, path, context] = line;
+  return `### Unknown Expression
+
+**Function**: \`${expression}()\`
+
+**Location**: \`${path}\` at line ${lineNumber}
+
+\`\`\`js
+${context}
+\`\`\`
+`;
+}
+
+function unsupportedWarning(line) {
+  let [_, namespace, lineNumber, path, context] = line;
+  return `### Unsupported nested destructuring of namespace
+
+**Namespace**: \`${namespace}\`
 
 **Location**: \`${path}\` at line ${lineNumber}
 

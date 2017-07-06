@@ -198,5 +198,7 @@
   "atob",
   "btoa",
   "indexedDB",
-  "webkitIndexedDB"
+  "webkitIndexedDB",
+  "Router",
+  "keys"
 ]
