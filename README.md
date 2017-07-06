@@ -68,38 +68,6 @@ jscodeshift -t ../ember-modules-codemod/transform.js app
 Note that invoking the transform directly disables the generation of the
 Markdown report if any unknown globals are discovered.
 
-### Maybe Helpful Scripts
-
-I put a few scripts that I found useful while writing the RFC inside the
-`scripts` directory. Perhaps they will be useful for you as well.
-
-#### Generate Globals-to-Module Markdown Table
-
-Generates a Markdown-compatible table of globals and their updated module version, and
-prints it to `stdout`.
-
-```sh
-scripts/generate-markdown-table | pbcopy
-```
-
-#### Generate Modules-by-Package Markdown Table
-
-Generates a Markdown-compatible table of modules, grouped by package, and their
-global equivalent, and prints it to `stdout`.
-
-```sh
-scripts/generate-by-module-markdown-table | pbcopy
-```
-
-#### Generate Package List
-
-Scans `ember-rfc176-data` and builds a list of all unique top-level package names,
-then prints it to `stdout`.
-
-```sh
-scripts/generate-package-list | pbcopy
-```
-
 ## Contributing
 
 ### Running Tests
