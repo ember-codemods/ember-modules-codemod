@@ -3,6 +3,10 @@ node_js:
   - "4"
   - "6"
 
+before_deploy:
+  - npm install -g auto-dist-tag
+  - auto-dist-tag --write
+
 deploy:
   provider: npm
   email: stefan.penner+ember-cli@gmail.com
