@@ -6,6 +6,10 @@ const LOG_FILE = "ember-modules-codemod.tmp." + process.pid;
 const ERROR_WARNING = 1;
 const MISSING_GLOBAL_WARNING = 2;
 
+const OPTS = {
+  quote: 'single',
+};
+
 module.exports = transform;
 
 /**
@@ -57,7 +61,7 @@ function transform(file, api, options) {
 
     // jscodeshift is not so great about giving us control over the resulting whitespace.
     // We'll use a regular expression to try to improve the situation (courtesy of @rwjblue).
-    source = beautifyImports(root.toSource());
+    source = beautifyImports(root.toSource(OPTS));
   } catch (e) {
     if (process.env.EMBER_MODULES_CODEMOD) {
       warnings.push([ERROR_WARNING, file.path, source, e.stack]);
