@@ -41,6 +41,15 @@ function transform(file, api, options) {
 
     let globalEmber = getGlobalEmberName(root);
 
+    // Discover global aliases for Ember keys that are introduced via destructuring,
+    // e.g. `const { String: { underscore } } = Ember;`.
+    let globalAliases = findGlobalEmberAliases(root, globalEmber, mappings);
+
+    // Resolve the discovered aliases agains the module registry. We intentionally do
+    // this ahead of finding replacements for e.g. `Ember.String.underscore` usage in
+    // order to reuse custom names for any fields referenced both ways.
+    resolveAliasImports(globalAliases, mappings, modules);
+
     // Scan the source code, looking for any instances of the `Ember` identifier
     // used as the root of a property lookup. If they match one of the provided
     // mappings, save it off for replacement later.
@@ -132,6 +141,87 @@ function transform(file, api, options) {
     return emberUsages.filter(isEmberGlobal(globalEmber)).paths();
   }
 
+  // Find destructured global aliases for fields on the Ember global
+  function findGlobalEmberAliases(root, globalEmber, mappings) {
+    let aliases = {};
+    let assignments = findUsageOfDestructuredEmber(root, globalEmber);
+    for (let assignment of assignments) {
+      let emberPath = joinEmberPath(assignment.get('init'), globalEmber);
+      for (let alias of extractAliases(mappings, assignment.get('id'), emberPath)) {
+        aliases[alias.identifier.node.name] = alias;
+      }
+    }
+    return aliases;
+  }
+
+  function findUsageOfDestructuredEmber(root, globalEmber) {
+    let uses = root.find(j.VariableDeclarator, (node) => {
+      if (j.Identifier.check(node.init)) {
+        return node.init.name === globalEmber;
+      } else if (j.MemberExpression.check(node.init)) {
+        return node.init.object.name === globalEmber;
+      }
+    });
+
+    return uses.paths();
+  }
+
+  function joinEmberPath(nodePath, globalEmber) {
+    if (j.Identifier.check(nodePath.node)) {
+      if (nodePath.node.name !== globalEmber) {
+        return nodePath.node.name;
+      }
+    } else if (j.MemberExpression.check(nodePath.node)) {
+      let lhs = nodePath.node.object.name;
+      let rhs = joinEmberPath(nodePath.get('property'));
+      if (lhs === globalEmber) {
+        return rhs;
+      } else {
+        return `${lhs}.${rhs}`;
+      }
+    }
+  }
+
+  // Determine aliases introduced by the given destructuring pattern, removing
+  // items from the pattern when they're available via a module import instead.
+  function extractAliases(mappings, pattern, emberPath) {
+    if (j.Identifier.check(pattern.node)) {
+      if (emberPath in mappings) {
+        pattern.parentPath.prune();
+        return [new GlobalAlias(pattern, emberPath)];
+      } else {
+        warnMissingGlobal(pattern.parentPath, emberPath);
+      }
+    } else if (j.ObjectPattern.check(pattern.node)) {
+      let aliases = findObjectPatternAliases(mappings, pattern, emberPath);
+      if (!pattern.node.properties.length) {
+        pattern.parentPath.prune();
+      }
+      return aliases;
+    }
+
+    return [];
+  }
+
+  function findObjectPatternAliases(mappings, objectPattern, basePath) {
+    let aliases = [];
+    for (let i = objectPattern.node.properties.length - 1; i >= 0; i--) {
+      let property = objectPattern.get('properties', i);
+      let propertyName = property.node.key.name;
+      let fullPath = basePath ? `${basePath}.${propertyName}` : propertyName;
+      aliases = aliases.concat(extractAliases(mappings, property.get('value'), fullPath));
+    }
+    return aliases;
+  }
+
+  function resolveAliasImports(aliases, mappings, registry) {
+    for (let globalName of Object.keys(aliases)) {
+      let alias = aliases[globalName];
+      let mapping = mappings[alias.emberPath];
+      registry.get(mapping.source, mapping.imported, alias.identifier.node.name);
+    }
+  }
+
   /**
    * Returns a function that can be used to map an array of MemberExpression
    * nodes into Replacement instances. Does the actual work of verifying if the
@@ -158,9 +248,7 @@ function transform(file, api, options) {
       // If we got this far but didn't find a viable candidate, that means the user is
       // using something on the `Ember` global that we don't have a module equivalent for.
       if (!found) {
-        let context = extractSourceContext(path);
-        let lineNumber = path.value.loc.start.line;
-        warnings.push([MISSING_GLOBAL_WARNING, candidates[candidates.length-1][1], lineNumber, file.path, context]);
+        warnMissingGlobal(path, candidates[candidates.length-1][1]);
         return null;
       }
 
@@ -181,13 +269,19 @@ function transform(file, api, options) {
     };
   }
 
+  function warnMissingGlobal(nodePath, emberPath) {
+    let context = extractSourceContext(nodePath);
+    let lineNumber = nodePath.value.loc.start.line;
+    warnings.push([MISSING_GLOBAL_WARNING, emberPath, lineNumber, file.path, context]);
+  }
+
   function extractSourceContext(path) {
     let start = path.node.loc.start.line;
     let end = path.node.loc.end.line;
 
     let lines = source.split("\n");
 
-    start = Math.max(start-2, 1);
+    start = Math.max(start-2, 1)-1;
     end = Math.min(end+2, lines.length);
 
     return lines.slice(start, end).join("\n");
@@ -210,8 +304,9 @@ function transform(file, api, options) {
 
   function removeGlobalEmber(root, globalEmber) {
     let remainingGlobals = findUsageOfEmberGlobal(root, globalEmber);
+    let remainingDestructuring = findUsageOfDestructuredEmber(root, globalEmber);
 
-    if(!remainingGlobals.length) {
+    if (!remainingGlobals.length && !remainingDestructuring.length) {
       getGlobalEmberImport(root).remove();
     }
   }
@@ -462,6 +557,13 @@ class Module {
     this.imported = imported;
     this.local = local;
     this.node = null;
+  }
+}
+
+class GlobalAlias {
+  constructor(identifier, emberPath) {
+    this.identifier = identifier;
+    this.emberPath = emberPath;
   }
 }
 
