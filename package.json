@@ -9,7 +9,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "ember-rfc176-data": "^0.2.0",
+    "ember-rfc176-data": "^0.2.6",
     "glob": "^7.1.1",
     "jscodeshift": "^0.3.29"
   },
@@ -21,6 +21,8 @@
     "temp": "^0.8.3"
   },
   "babel": {
-    "presets": ["env"]
+    "presets": [
+      "env"
+    ]
   }
 }
