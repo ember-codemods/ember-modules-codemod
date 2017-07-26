@@ -143,5 +143,4 @@ addressed in the future. PRs welcome!
 
 * Apps using `ember-cli-shims` are not updated.
 * All long imports are beautified, even non-Ember ones.
-* Destructured assignment to the Ember global is not handled (e.g. `const { underscore } = Ember`).
 * Namespace imports (`import * as bar from 'foo'`) are not supported.
