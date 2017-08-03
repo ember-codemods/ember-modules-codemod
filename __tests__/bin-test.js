@@ -9,14 +9,16 @@ const originalCwd = process.cwd();
 
 let tmpPath;
 
-function run() {
+function run(codemodArgs) {
   let stdout = '';
   let stderr = '';
 
   return new Promise(resolve => {
-    let ps = cp.spawn('node', [
-      path.join(originalCwd, 'bin/ember-modules-codemod')
-    ], {
+    let codemodCmd = [path.join(originalCwd, 'bin/ember-modules-codemod')];
+    if(codemodArgs) {
+      codemodCmd = codemodCmd.concat(codemodArgs);
+    }
+    let ps = cp.spawn('node', codemodCmd, {
       cwd: tmpPath
     });
 
@@ -150,6 +152,37 @@ describe('bin acceptance', function() {
           let actualOutput = fs.readFileSync(path.join(tmpPath, 'MODULE_REPORT.md'), 'utf8');
 
           expect(actualOutput).toEqual(expectedOutput);
+        });
+      });
+    });
+
+    describe('with a custom path', function() {
+      let tmpFile;
+      const inputFile = path.join(originalCwd, '__testfixtures__/final-boss.input.js');
+      const outputFile = path.join(originalCwd, '__testfixtures__/final-boss.output.js');
+
+
+      beforeEach(function() {
+        fs.ensureDirSync(path.join(tmpPath, 'custom-path'));
+
+        tmpFile = path.join(tmpPath, 'custom-path/final-boss.js');
+
+        fs.copySync(
+          inputFile,
+          tmpFile
+        );
+      });
+
+      it('works', function() {
+        return run('custom-path').then(result => {
+          let exitCode = result.exitCode;
+          let stdout = result.stdout;
+
+          expect(exitCode).toEqual(0);
+
+          expect(stdout).toMatch('Done! All uses of the Ember global have been updated.\n');
+
+          expect(fs.readFileSync(tmpFile, 'utf8')).toEqual(fs.readFileSync(outputFile, 'utf8'));
         });
       });
     });
