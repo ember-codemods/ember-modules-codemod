@@ -43,6 +43,12 @@ cd my-ember-app
 ember-modules-codemod
 ```
 
+Or using `npx`:
+
+```sh
+npx ember-modules-codemod
+```
+
 #### Unknown Globals
 
 If the codemod finds a use of the `Ember` global it doesn't know how to
