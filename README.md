@@ -66,7 +66,7 @@ directly, you can clone this repository and invoke the transform manually:
 
 ```sh
 npm install jscodeshift -g
-git clone https://github.com/tomdale/ember-modules-codemod
+git clone https://github.com/ember-cli/ember-modules-codemod
 cd my-ember-app
 jscodeshift -t ../ember-modules-codemod/transform.js app
 ```
