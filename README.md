@@ -79,17 +79,11 @@ Markdown report if any unknown globals are discovered.
 ### Running Tests
 
 ```sh
-npm test
+yarn test // run all tests once
+yarn test -- --watchAll // continuously run tests
 ```
 
-Tests for this codemod work by comparing two directories:
-
-* `test/input`
-* `test/expected-output`
-
-Pre-transform files should go in `input`, expected output after the transform
-should go in `expected-output`. Files must be named identically so they can be
-compared.
+Tests for this codemod work by comparing a paired input and output file in the `__testfixtures__` directory.  Pre-transform files should be of format `<test-name>.input.js`, expected output after the transform should be named `<test-name>.output.js`. Files must use the same `<test-name>` in their names so they can be compared.
 
 ### Transform Bugs
 
