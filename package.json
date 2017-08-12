@@ -3,7 +3,7 @@
   "version": "0.2.1",
   "author": "Tom Dale <tom@tomdale.net>",
   "license": "MIT",
-  "repository": "https://github.com/tomdale/ember-modules-codemod",
+  "repository": "https://github.com/ember-cli/ember-modules-codemod",
   "bin": "./bin/ember-modules-codemod.js",
   "scripts": {
     "test": "jest"
