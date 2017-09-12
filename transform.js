@@ -488,8 +488,8 @@ function transform(file, api, options) {
         return result + named.join(',') + '\n} from';
       } else {
 
-        let result = importStatement.slice(0, openCurly + 1);
-        let named = importStatement
+        const result = importStatement.slice(0, openCurly + 1);
+        const named = importStatement
           .slice(openCurly + 1, -6).split(',').sort();
 
         const sorted = result + named.join(',') + '\n} from';
