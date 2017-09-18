@@ -99,8 +99,10 @@ function transform(file, api, options) {
   function buildMappings(registry) {
     let mappings = {};
 
-    for (let mapping of Object.keys(MAPPINGS)) {
-      mappings[mapping] = new Mapping(MAPPINGS[mapping], registry);
+    for (let mapping of MAPPINGS) {
+      if (!mapping.deprecated) {
+        mappings[mapping.global.substr('Ember.'.length)] = new Mapping(mapping, registry);
+      }
     }
 
     return mappings;
@@ -256,14 +258,16 @@ function transform(file, api, options) {
       let mapping = mappings[propertyPath];
 
       let mod = mapping.getModule();
-      if (!mod.local) {
+      let local = mod.local;
+      if (!local) {
         // Ember.computed.or => or
-        let local = propertyPath.split(".").slice(-1)[0];
-        if (includes(RESERVED, local)) {
-          local = `Ember${local}`;
-        }
-        mod.local = local;
+        local = propertyPath.split(".").slice(-1)[0];
       }
+
+      if (includes(RESERVED, local)) {
+        local = `Ember${local}`;
+      }
+      mod.local = local;
 
       return new Replacement(nodePath, mod);
     };
@@ -575,10 +579,10 @@ class Replacement {
 }
 
 class Mapping {
-  constructor([source, imported, local], registry) {
-    this.source = source;
-    this.imported = imported || "default";
-    this.local = local;
+  constructor({module, export: exportName, localName}, registry) {
+    this.source = module;
+    this.imported = exportName;
+    this.local = localName;
     this.registry = registry;
   }
 
