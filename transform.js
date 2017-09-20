@@ -47,8 +47,8 @@ function transform(file, api, options) {
     // we have to do it here before `findGlobalEmberAliases`, as this might remove namespace destructurings like
     // `const { computed } = Ember` as `Ember.computed` is both a valid function with a named module import as well as
     // a namespace. And we need to check those variable declarations to prevent false positives
-    let namespaces = EMBER_NAMESPACES; // @todo Do we need to check for aliases?
-    let namespaceUsages = namespaces.map(namespace => ({
+    let namespaces = EMBER_NAMESPACES;
+    let namespaceUsages = EMBER_NAMESPACES.map(namespace => ({
       namespace,
       usages: findNamespaceUsage(root, globalEmber, namespace)
     }));
@@ -57,7 +57,7 @@ function transform(file, api, options) {
     // e.g. `const { String: { underscore } } = Ember;`.
     let globalAliases = findGlobalEmberAliases(root, globalEmber, mappings);
 
-    // Resolve the discovered aliases agains the module registry. We intentionally do
+    // Resolve the discovered aliases against the module registry. We intentionally do
     // this ahead of finding replacements for e.g. `Ember.String.underscore` usage in
     // order to reuse custom names for any fields referenced both ways.
     resolveAliasImports(globalAliases, mappings, modules);
@@ -214,7 +214,10 @@ function transform(file, api, options) {
         pattern.parentPath.prune();
         return [new GlobalAlias(pattern, emberPath)];
       } else {
-        warnMissingGlobal(pattern.parentPath, emberPath);
+        // skip warnings for destructured namespaces, these will be handled elsewhere
+        if (!EMBER_NAMESPACES.includes(emberPath)) {
+          warnMissingGlobal(pattern.parentPath, emberPath);
+        }
       }
     } else if (j.ObjectPattern.check(pattern.node)) {
       let aliases = findObjectPatternAliases(mappings, pattern, emberPath);
