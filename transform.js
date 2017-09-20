@@ -315,11 +315,21 @@ function transform(file, api, options) {
       if (!bindings) return false;
 
       let parent = bindings[0].parent;
-      while (parent && !j.VariableDeclarator.check(parent.value)) {
+      while (parent) {
+        // if the namespace is defined by a variable declaration, make sure this is one of our Ember destructure statements
+        if (j.VariableDeclarator.check(parent.node)) {
+          return destructureStatements.includes(parent);
+        }
+        // if the codemod has run before namespaces were supported, the `computed` namespace may already have been imported
+        // through the new module API. So this is still using by a valid Ember namespace, so return true
+        if (j.ImportDeclaration.check(parent.node)) {
+          return parent.node.source.value.match(/@ember\//);
+        }
+
         parent = parent.parent;
       }
 
-      return destructureStatements.includes(parent);
+      return false;
     }).paths();
   }
 

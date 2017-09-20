@@ -1,7 +1,11 @@
+import Controller from '@ember/controller';
+import { computed } from '@ember/object';
 import Ember from 'ember';
-const { inject, computed } = Ember;
+const {
+  inject
+} = Ember;
 
-export default Ember.Controller.extend({
+export default Controller.extend({
   controller: inject.controller('application'),
   router: inject.service('router'),
   anotherRouter: computed.alias('router'),
