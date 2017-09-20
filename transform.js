@@ -60,7 +60,7 @@ function transform(file, api, options) {
     // Resolve the discovered aliases against the module registry. We intentionally do
     // this ahead of finding replacements for e.g. `Ember.String.underscore` usage in
     // order to reuse custom names for any fields referenced both ways.
-    resolveAliasImports(globalAliases, mappings, modules);
+    resolveAliasImports(globalAliases, mappings, modules, root);
 
     // Scan the source code, looking for any instances of the `Ember` identifier
     // used as the root of a property lookup. If they match one of the provided
@@ -241,12 +241,30 @@ function transform(file, api, options) {
     return aliases;
   }
 
-  function resolveAliasImports(aliases, mappings, registry) {
+  function resolveAliasImports(aliases, mappings, registry, root) {
     for (let globalName of Object.keys(aliases)) {
       let alias = aliases[globalName];
       let mapping = mappings[alias.emberPath];
-      registry.get(mapping.source, mapping.imported, alias.identifier.node.name);
+      // skip if this is (also) a namespace and it is nowhere used as a direct function call
+      // In the case of `const { computed } = Ember` where `computed` is only used as a namespace (e.g. `computed.alias`)
+      // and not as a direct function call (`computed(function(){ ... })`), resolving the module would leave an unused
+      // module import
+      if (
+        !EMBER_NAMESPACES.includes(globalName)
+        || hasSimpleCallExpression(root, alias.identifier.node.name)
+      ) {
+        registry.get(mapping.source, mapping.imported, alias.identifier.node.name);
+      }
     }
+  }
+
+  function hasSimpleCallExpression(root, name) {
+    let paths = root.find(j.CallExpression, {
+      callee: {
+        name
+      }
+    });
+    return paths.length > 0;
   }
 
   /**
