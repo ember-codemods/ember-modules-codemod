@@ -10,6 +10,8 @@ const OPTS = {
   quote: 'single',
 };
 
+const EMBER_NAMESPACES = ['computed', 'inject'];
+
 module.exports = transform;
 
 /**
@@ -56,6 +58,14 @@ function transform(file, api, options) {
     let replacements = findUsageOfEmberGlobal(root, globalEmber)
       .map(findReplacement(mappings));
 
+    let namespaces = EMBER_NAMESPACES; // @todo check for aliases?
+    for (let namespace of namespaces) {
+      let namespaceReplacements = findNamespaceUsage(root, namespace)
+        .map(findNamespaceReplacement(mappings, namespace));
+
+      replacements = replacements.concat(namespaceReplacements);
+    }
+
     // Now that we've identified all of the replacements that we need to do, we'll
     // make sure to either add new `import` declarations, or update existing ones
     // to add new named exports or the default export.
@@ -64,6 +74,10 @@ function transform(file, api, options) {
     // Actually go through and replace each usage of `Ember.whatever` with the
     // imported binding (`whatever`).
     applyReplacements(replacements);
+
+    // findGlobalEmberAliases might have removed destructured namespaces that are also valid functions themselves
+    // like `Ember.computed`. But other namespaces like `Ember.inject` might have been left over, so remove them here
+    removeNamespaces(root, globalEmber, namespaces);
 
     // Finally remove global Ember import if no globals left
     removeGlobalEmber(root, globalEmber);
@@ -267,6 +281,69 @@ function transform(file, api, options) {
 
       return new Replacement(nodePath, mod);
     };
+  }
+
+  function findNamespaceUsage(root, namespace) {
+    let namespaceUsages = root.find(j.MemberExpression, {
+      object: {
+        name: namespace,
+      },
+    });
+
+    // @todo we should probably filter here and check that every usage of a namespace actually comes from the Ember global,
+    // and not reference something not Ember related. Needs to check scopes...
+
+    return namespaceUsages.paths();
+  }
+
+  function findNamespaceReplacement(mappings, namespace) {
+    return function(path) {
+
+      let candidates = expandMemberExpressions(path)
+        .map(([path, propertyPath]) => [path, `${namespace}.${propertyPath}`]);
+
+      let found = candidates.find(([_, propertyPath]) => propertyPath in mappings);
+
+      // If we got this far but didn't find a viable candidate, that means the user is
+      // using something on the `Ember` global that we don't have a module equivalent for.
+      if (!found) {
+        warnMissingGlobal(path, candidates[candidates.length-1][1]);
+        return null;
+      }
+
+      let [nodePath, propertyPath] = found;
+      let mapping = mappings[propertyPath];
+
+      let mod = mapping.getModule();
+      if (!mod.local) {
+        // Ember.computed.or => or
+        let local = propertyPath.split(".").slice(-1)[0];
+        if (includes(RESERVED, local)) {
+          local = `Ember${local}`;
+        }
+        mod.local = local;
+      }
+
+      return new Replacement(nodePath, mod);
+    }
+  }
+
+  function removeNamespaces(root, globalEmber, namespaces) {
+    let assignments = findUsageOfDestructuredEmber(root, globalEmber);
+    for (let assignment of assignments) {
+      let emberPath = joinEmberPath(assignment.get('init'), globalEmber);
+
+      if (!emberPath && j.ObjectPattern.check(assignment.node.id)) {
+        assignment.get('id').get('properties').filter(({ node }) => {
+          return j.Identifier.check(node.key) && namespaces.includes(node.key.name);
+        })
+          .forEach(path => path.prune());
+
+        if (!assignment.node.id.properties.length) {
+          assignment.prune();
+        }
+      }
+    }
   }
 
   function warnMissingGlobal(nodePath, emberPath) {

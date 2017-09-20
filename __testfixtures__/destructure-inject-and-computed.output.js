@@ -1,7 +1,7 @@
-import Controller, { inject as controller } from '@ember/controller';
 import { inject as service } from '@ember/service';
-import { computed } from "@ember/object";
-import { alias } from '@ember/computed';
+import { alias } from '@ember/object/computed';
+import Controller, { inject as controller } from '@ember/controller';
+import { computed } from '@ember/object';
 
 export default Controller.extend({
   controller: controller('application'),
