@@ -43,7 +43,10 @@ function transform(file, api, options) {
 
     let globalEmber = getGlobalEmberName(root);
 
-
+    // find all usages of namespaces like `computed.alias`
+    // we have to do it here before `findGlobalEmberAliases`, as this might remove namespace destructurings like
+    // `const { computed } = Ember` as `Ember.computed` is both a valid function with a named module import as well as
+    // a namespace. And we need to check those variable declarations to prevent false positives
     let namespaces = EMBER_NAMESPACES; // @todo Do we need to check for aliases?
     let namespaceUsages = namespaces.map(namespace => ({
       namespace,
@@ -65,9 +68,10 @@ function transform(file, api, options) {
     let replacements = findUsageOfEmberGlobal(root, globalEmber)
       .map(findReplacement(mappings));
 
+    // add the already found namespace replacements to our replacement array
     for (let ns of namespaceUsages) {
       let namespaceReplacements = ns.usages
-        .map(findNamespaceReplacement(mappings, ns.namespace));
+        .map(findReplacement(mappings, ns.namespace));
 
       replacements = replacements.concat(namespaceReplacements);
     }
@@ -247,11 +251,14 @@ function transform(file, api, options) {
    * nodes into Replacement instances. Does the actual work of verifying if the
    * `Ember` identifier used in the MemberExpression is actually replaceable.
   */
-  function findReplacement(mappings) {
+  function findReplacement(mappings, namespace) {
     return function(path) {
       // Expand the full set of property lookups. For example, we don't want
       // just "Ember.computed"—we want "Ember.computed.or" as well.
       let candidates = expandMemberExpressions(path);
+      if (namespace) {
+        candidates = candidates.map(([path, propertyPath]) => [path, `${namespace}.${propertyPath}`]);
+      }
 
       // This will give us an array of tuples ([pathString, node]) that represent
       // the possible replacements, from most-specific to least-specific. For example:
@@ -261,9 +268,7 @@ function transform(file, api, options) {
       //
       // We'll go through these to find the most specific candidate that matches
       // our global->ES6 map.
-      let found = candidates.find(([_, propertyPath]) => {
-        return propertyPath in mappings;
-      });
+      let found = candidates.find(([_, propertyPath]) => propertyPath in mappings);
 
       // If we got this far but didn't find a viable candidate, that means the user is
       // using something on the `Ember` global that we don't have a module equivalent for.
@@ -289,6 +294,9 @@ function transform(file, api, options) {
     };
   }
 
+  /**
+   * Returns an array of paths that are MemberExpressions of the given namespace, e.g. `computed.alias`
+   */
   function findNamespaceUsage(root, globalEmber, namespace) {
     let namespaceUsages = root.find(j.MemberExpression, {
       object: {
@@ -297,6 +305,9 @@ function transform(file, api, options) {
     });
     let destructureStatements = findUsageOfDestructuredEmber(root, globalEmber);
 
+    // the namespace like `computed` could be coming from something other than `Ember.computed`
+    // so we check the VariableDeclaration within the scope where it is defined and compare that to our
+    // `destructureStatements` to make sure this is really coming from on of those
     return namespaceUsages.filter((path) => {
       let scope = path.scope.lookup(namespace);
       if (!scope) return false;
@@ -312,38 +323,9 @@ function transform(file, api, options) {
     }).paths();
   }
 
-  function findNamespaceReplacement(mappings, namespace) {
-    return function(path) {
-
-      let candidates = expandMemberExpressions(path)
-        .map(([path, propertyPath]) => [path, `${namespace}.${propertyPath}`]);
-
-      let found = candidates.find(([_, propertyPath]) => propertyPath in mappings);
-
-      // If we got this far but didn't find a viable candidate, that means the user is
-      // using something on the `Ember` global that we don't have a module equivalent for.
-      if (!found) {
-        warnMissingGlobal(path, candidates[candidates.length-1][1]);
-        return null;
-      }
-
-      let [nodePath, propertyPath] = found;
-      let mapping = mappings[propertyPath];
-
-      let mod = mapping.getModule();
-      if (!mod.local) {
-        // Ember.computed.or => or
-        let local = propertyPath.split(".").slice(-1)[0];
-        if (includes(RESERVED, local)) {
-          local = `Ember${local}`;
-        }
-        mod.local = local;
-      }
-
-      return new Replacement(nodePath, mod);
-    }
-  }
-
+  /**
+   * Remove any destructuring of namespaces, like `const { inject } = Ember`
+   */
   function removeNamespaces(root, globalEmber, namespaces) {
     let assignments = findUsageOfDestructuredEmber(root, globalEmber);
     for (let assignment of assignments) {
