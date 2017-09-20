@@ -215,7 +215,7 @@ function transform(file, api, options) {
         return [new GlobalAlias(pattern, emberPath)];
       } else {
         // skip warnings for destructured namespaces, these will be handled elsewhere
-        if (!EMBER_NAMESPACES.includes(emberPath)) {
+        if (!includes(EMBER_NAMESPACES, emberPath)) {
           warnMissingGlobal(pattern.parentPath, emberPath);
         }
       }
@@ -250,7 +250,7 @@ function transform(file, api, options) {
       // and not as a direct function call (`computed(function(){ ... })`), resolving the module would leave an unused
       // module import
       if (
-        !EMBER_NAMESPACES.includes(globalName)
+        !includes(EMBER_NAMESPACES, globalName)
         || hasSimpleCallExpression(root, alias.identifier.node.name)
       ) {
         registry.get(mapping.source, mapping.imported, alias.identifier.node.name);
@@ -339,7 +339,7 @@ function transform(file, api, options) {
       while (parent) {
         // if the namespace is defined by a variable declaration, make sure this is one of our Ember destructure statements
         if (j.VariableDeclarator.check(parent.node)) {
-          return destructureStatements.includes(parent);
+          return includes(destructureStatements, parent);
         }
         // if the codemod has run before namespaces were supported, the `computed` namespace may already have been imported
         // through the new module API. So this is still using by a valid Ember namespace, so return true
@@ -363,8 +363,9 @@ function transform(file, api, options) {
       let emberPath = joinEmberPath(assignment.get('init'), globalEmber);
 
       if (!emberPath && j.ObjectPattern.check(assignment.node.id)) {
-        assignment.get('id').get('properties').filter(({ node }) => {
-          return j.Identifier.check(node.key) && namespaces.includes(node.key.name);
+        assignment.get('id').get('properties').filter((path) => {
+          let node = path.node;
+          return j.Identifier.check(node.key) && includes(namespaces, node.key.name);
         })
           .forEach(path => path.prune());
 
