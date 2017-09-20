@@ -9,3 +9,11 @@ export default Controller.extend({
   anotherRouter: alias('router'),
   someComputedProperty: computed(function() { return true; })
 });
+
+function notRelated() {
+  const computed = new SomeThing();
+
+  return {
+    foo: computed.not('bar')
+  };
+}

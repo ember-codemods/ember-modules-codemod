@@ -43,6 +43,13 @@ function transform(file, api, options) {
 
     let globalEmber = getGlobalEmberName(root);
 
+
+    let namespaces = EMBER_NAMESPACES; // @todo Do we need to check for aliases?
+    let namespaceUsages = namespaces.map(namespace => ({
+      namespace,
+      usages: findNamespaceUsage(root, globalEmber, namespace)
+    }));
+
     // Discover global aliases for Ember keys that are introduced via destructuring,
     // e.g. `const { String: { underscore } } = Ember;`.
     let globalAliases = findGlobalEmberAliases(root, globalEmber, mappings);
@@ -58,10 +65,9 @@ function transform(file, api, options) {
     let replacements = findUsageOfEmberGlobal(root, globalEmber)
       .map(findReplacement(mappings));
 
-    let namespaces = EMBER_NAMESPACES; // @todo check for aliases?
-    for (let namespace of namespaces) {
-      let namespaceReplacements = findNamespaceUsage(root, namespace)
-        .map(findNamespaceReplacement(mappings, namespace));
+    for (let ns of namespaceUsages) {
+      let namespaceReplacements = ns.usages
+        .map(findNamespaceReplacement(mappings, ns.namespace));
 
       replacements = replacements.concat(namespaceReplacements);
     }
@@ -283,17 +289,27 @@ function transform(file, api, options) {
     };
   }
 
-  function findNamespaceUsage(root, namespace) {
+  function findNamespaceUsage(root, globalEmber, namespace) {
     let namespaceUsages = root.find(j.MemberExpression, {
       object: {
         name: namespace,
       },
     });
+    let destructureStatements = findUsageOfDestructuredEmber(root, globalEmber);
 
-    // @todo we should probably filter here and check that every usage of a namespace actually comes from the Ember global,
-    // and not reference something not Ember related. Needs to check scopes...
+    return namespaceUsages.filter((path) => {
+      let scope = path.scope.lookup(namespace);
+      if (!scope) return false;
+      let bindings = scope.getBindings()[namespace];
+      if (!bindings) return false;
 
-    return namespaceUsages.paths();
+      let parent = bindings[0].parent;
+      while (parent && !j.VariableDeclarator.check(parent.value)) {
+        parent = parent.parent;
+      }
+
+      return destructureStatements.includes(parent);
+    }).paths();
   }
 
   function findNamespaceReplacement(mappings, namespace) {
