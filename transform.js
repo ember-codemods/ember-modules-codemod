@@ -8,6 +8,7 @@ const MISSING_GLOBAL_WARNING = 2;
 
 const OPTS = {
   quote: 'single',
+  lineTerminator: '\n'
 };
 
 const EMBER_NAMESPACES = ['computed', 'inject'];
