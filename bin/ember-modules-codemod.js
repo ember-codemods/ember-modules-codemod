@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const fs = require("fs");
-const spawn = require("child_process").spawn;
+const execa = require('execa');
 const chalk = require("chalk");
 const path = require("path");
 const glob = require("glob");
@@ -21,7 +21,7 @@ try {
     EMBER_MODULES_CODEMOD: true
   }, process.env);
 
-  let transform = spawn(binPath, ["-t", transformPath, "app", "addon", "addon-test-support", "tests", "test-support", "lib"], {
+  let transform = execa(binPath, ["-t", transformPath, "app", "addon", "addon-test-support", "tests", "test-support", "lib"], {
     stdio: "inherit",
     env: env
   });
