@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "ember-rfc176-data": "^0.2.6",
+    "execa": "~0.8.0",
     "glob": "^7.1.1",
     "jscodeshift": "^0.3.29"
   },
