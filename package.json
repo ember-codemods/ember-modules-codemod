@@ -1,6 +1,6 @@
 {
   "name": "ember-modules-codemod",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "author": "Tom Dale <tom@tomdale.net>",
   "license": "MIT",
   "repository": "https://github.com/ember-cli/ember-modules-codemod",
