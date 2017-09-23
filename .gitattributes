@@ -1,1 +1,3 @@
 *   text eol=lf
+__testfixtures__/*.crlf.input.js   text eol=crlf
+__testfixtures__/*.crlf.output.js   text eol=crlf

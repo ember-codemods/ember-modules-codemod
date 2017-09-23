@@ -7,8 +7,7 @@ const ERROR_WARNING = 1;
 const MISSING_GLOBAL_WARNING = 2;
 
 const OPTS = {
-  quote: 'single',
-  lineTerminator: '\n'
+  quote: 'single'
 };
 
 const EMBER_NAMESPACES = ['computed', 'inject'];
@@ -22,6 +21,9 @@ module.exports = transform;
  */
 function transform(file, api, options) {
   let source = file.source;
+
+  const lineTerminator = source.indexOf('\r\n') > -1 ? '\r\n' : '\n';
+
   let j = api.jscodeshift;
 
   let root = j(source);
@@ -95,7 +97,9 @@ function transform(file, api, options) {
 
     // jscodeshift is not so great about giving us control over the resulting whitespace.
     // We'll use a regular expression to try to improve the situation (courtesy of @rwjblue).
-    source = beautifyImports(root.toSource(OPTS));
+    source = beautifyImports(root.toSource(Object.assign({}, OPTS, {
+      lineTerminator: lineTerminator
+    })));
   } catch (e) {
     if (process.env.EMBER_MODULES_CODEMOD) {
       warnings.push([ERROR_WARNING, file.path, source, e.stack]);
