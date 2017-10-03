@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+'use strict';
 
 const fs = require("fs");
 const execa = require('execa');
@@ -107,7 +108,9 @@ function buildReport() {
 }
 
 function runtimeErrorWarning(line) {
-  let [_, path, source, err] = line;
+  let path = line.path;
+  let source = line.source;
+  let err = line.err;
 
   return `### Runtime Error
 
@@ -128,7 +131,11 @@ ${source}
 }
 
 function unknownGlobalWarning(line) {
-  let [_, global, lineNumber, path, context] = line;
+  let global = line.global;
+  let lineNumber = line.lineNumber;
+  let path = line.path;
+  let context = line.context;
+
   return `### Unknown Global
 
 **Global**: \`Ember.${global}\`
