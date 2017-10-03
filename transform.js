@@ -19,7 +19,7 @@ module.exports = transform;
  * It scans JavaScript files that use the Ember global and updates
  * them to use the module syntax from the proposed new RFC.
  */
-function transform(file, api, options) {
+function transform(file, api/*, options*/) {
   let source = file.source;
 
   const lineTerminator = source.indexOf('\r\n') > -1 ? '\r\n' : '\n';
@@ -100,7 +100,7 @@ function transform(file, api, options) {
     source = beautifyImports(root.toSource(Object.assign({}, OPTS, {
       lineTerminator: lineTerminator
     })));
-  } catch (e) {
+  } catch(e) {
     if (process.env.EMBER_MODULES_CODEMOD) {
       warnings.push([ERROR_WARNING, file.path, source, e.stack]);
     }
@@ -276,7 +276,7 @@ function transform(file, api, options) {
    * Returns a function that can be used to map an array of MemberExpression
    * nodes into Replacement instances. Does the actual work of verifying if the
    * `Ember` identifier used in the MemberExpression is actually replaceable.
-  */
+   */
   function findReplacement(mappings, namespace) {
     return function(path) {
       // Expand the full set of property lookups. For example, we don't want
@@ -299,7 +299,7 @@ function transform(file, api, options) {
       // If we got this far but didn't find a viable candidate, that means the user is
       // using something on the `Ember` global that we don't have a module equivalent for.
       if (!found) {
-        warnMissingGlobal(path, candidates[candidates.length-1][1]);
+        warnMissingGlobal(path, candidates[candidates.length - 1][1]);
         return null;
       }
 
@@ -393,8 +393,8 @@ function transform(file, api, options) {
 
     let lines = source.split("\n");
 
-    start = Math.max(start-2, 1)-1;
-    end = Math.min(end+2, lines.length);
+    start = Math.max(start - 2, 1) - 1;
+    end = Math.min(end + 2, lines.length);
 
     return lines.slice(start, end).join("\n");
   }
@@ -429,11 +429,7 @@ function transform(file, api, options) {
     if (!parent) { return false; }
     if (!j.VariableDeclarator.check(parent.node)) { return false; }
 
-    if (parent.node.id.name === local) {
-      return true;
-    }
-
-    return false;
+    return parent.node.id.name === local;
   }
 
   function updateOrCreateImportDeclarations(root, registry) {
@@ -470,27 +466,6 @@ function transform(file, api, options) {
     });
   }
 
-  function findUsedModules(replacements, existingModules) {
-    let modules = [];
-    let modulesBySource = {};
-
-    replacements.forEach(r => {
-      let replacementModule = r.mapping.mod;
-      let byImported = modulesBySource[replacementModule.source];
-      if (!byImported) {
-        byImported = modulesBySource[replacementModule.source] = {};
-      }
-
-      let seenModule = byImported[replacementModule.imported];
-      if (!seenModule) {
-        byImported[replacementModule.imported] = true;
-        modules.push(replacementModule);
-      }
-    });
-
-    return modules;
-  }
-
   function findExistingModules(root) {
     let registry = new ModuleRegistry();
 
@@ -519,7 +494,6 @@ function transform(file, api, options) {
     return registry;
   }
 
-
   function expandMemberExpressions(path) {
     let propName = path.node.property.name;
     let expressions = [[path, propName]];
@@ -540,7 +514,7 @@ function transform(file, api, options) {
 
   // Flagrantly stolen from https://github.com/5to6/5to6-codemod/blob/master/utils/main.js
   function createImportStatement(source, imported, local) {
-    var declaration, variable, idIdentifier, nameIdentifier;
+    let declaration, variable, idIdentifier, nameIdentifier;
     // console.log('variableName', variableName);
     // console.log('moduleName', moduleName);
 
@@ -552,7 +526,7 @@ function transform(file, api, options) {
 
     // multiple variable names indicates a destructured import
     if (Array.isArray(local)) {
-      var variableIds = local.map(function (v) {
+      let variableIds = local.map(function(v) {
         return j.importSpecifier(j.identifier(v), j.identifier(v));
       });
 
@@ -584,17 +558,18 @@ function transform(file, api, options) {
   function beautifyImports(source) {
     return source.replace(/\bimport.+from/g, (importStatement) => {
       let openCurly = importStatement.indexOf('{');
-      let closeCurly = importStatement.indexOf('}');
 
       // leave default only imports alone
-      if (openCurly === -1) { return importStatement; }
+      if (openCurly === -1) {
+        return importStatement;
+      }
 
       if (importStatement.length > 50) {
         // if the segment is > 50 chars make it multi-line
         let result = importStatement.slice(0, openCurly + 1);
         let named = importStatement
-              .slice(openCurly + 1, -6).split(',')
-              .map(name => `\n  ${name.trim()}`);
+          .slice(openCurly + 1, -6).split(',')
+          .map(name => `\n  ${name.trim()}`);
 
         return result + named.join(',') + '\n} from';
       } else {
@@ -616,10 +591,6 @@ class ModuleRegistry {
   constructor() {
     this.bySource = {};
     this.modules = [];
-  }
-
-  findModule(mod) {
-    return this.find(mod.source, mod.imported);
   }
 
   find(source, imported) {
@@ -656,10 +627,6 @@ class ModuleRegistry {
     }
 
     return mod;
-  }
-
-  hasSource(source) {
-    return source in this.bySource;
   }
 }
 
