@@ -1,5 +1,6 @@
 # Ember Modules Codemod
 
+[![npm version](https://badge.fury.io/js/ember-modules-codemod.svg)](https://badge.fury.io/js/ember-modules-codemod)
 [![Build Status](https://travis-ci.org/ember-cli/ember-modules-codemod.svg?branch=master)](https://travis-ci.org/ember-cli/ember-modules-codemod)
 
 This codemod uses [`jscodeshift`](https://github.com/facebook/jscodeshift) to update an Ember application to
