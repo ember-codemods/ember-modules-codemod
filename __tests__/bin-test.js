@@ -102,14 +102,32 @@ describe('bin acceptance', function() {
       });
 
       it('works', function() {
-        cp.spawnSync('node', [
-          path.join(process.cwd(), 'bin/ember-modules-codemod')
-        ], {
-          cwd: tmpPath,
-          stdio: 'inherit'
-        });
+        let stdout = '';
+        let exitCode;
 
-        expect(fs.readFileSync(tmpFile, 'utf8')).toEqual(fs.readFileSync(outputFile, 'utf8'));
+        return new Promise(resolve => {
+          let ps = cp.spawn('node', [
+            path.join(process.cwd(), 'bin/ember-modules-codemod')
+          ], {
+            cwd: tmpPath
+          });
+
+          ps.stdout.on('data', data => {
+            stdout += data.toString();
+          });
+
+          ps.on('exit', (code, signal) => {
+            exitCode = code;
+
+            resolve();
+          });
+        }).then(() => {
+          expect(exitCode).toEqual(0);
+
+          expect(stdout).toMatch('Done! All uses of the Ember global have been updated.\n');
+
+          expect(fs.readFileSync(tmpFile, 'utf8')).toEqual(fs.readFileSync(outputFile, 'utf8'));
+        });
       });
     });
   });
