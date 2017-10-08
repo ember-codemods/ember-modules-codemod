@@ -8,8 +8,38 @@ const tmp = require('tmp');
 const inputFile = path.join(process.cwd(), '__testfixtures__/final-boss.input.js');
 const outputFile = path.join(process.cwd(), '__testfixtures__/final-boss.output.js');
 
+let tmpPath;
+
+function run() {
+  let stdout = '';
+  let stderr = '';
+
+  return new Promise(resolve => {
+    let ps = cp.spawn('node', [
+      path.join(process.cwd(), 'bin/ember-modules-codemod')
+    ], {
+      cwd: tmpPath
+    });
+
+    ps.stdout.on('data', data => {
+      stdout += data.toString();
+    });
+
+    ps.stderr.on('data', data => {
+      stderr += data.toString();
+    });
+
+    ps.on('exit', code => {
+      resolve({
+        exitCode: code,
+        stdout,
+        stderr
+      });
+    });
+  });
+}
+
 describe('bin acceptance', function() {
-  let tmpPath;
   let tmpPackageJson;
 
   beforeEach(function() {
@@ -19,26 +49,10 @@ describe('bin acceptance', function() {
   });
 
   it('handles non-ember projects', function() {
-    let stderr = '';
-    let exitCode;
+    return run().then(result => {
+      let exitCode = result.exitCode;
+      let stderr = result.stderr;
 
-    return new Promise(resolve => {
-      let ps = cp.spawn('node', [
-        path.join(process.cwd(), 'bin/ember-modules-codemod')
-      ], {
-        cwd: tmpPath
-      });
-
-      ps.stderr.on('data', data => {
-        stderr += data.toString();
-      });
-
-      ps.on('exit', (code, signal) => {
-        exitCode = code;
-
-        resolve();
-      });
-    }).then(() => {
       expect(exitCode).not.toEqual(0);
 
       expect(stderr).toEqual(`It doesn't look like you're inside an Ember app. I couldn't find a package.json at ${tmpPackageJson}\n`);
@@ -55,26 +69,10 @@ describe('bin acceptance', function() {
     });
 
     it('exits gracefully when no files found', function() {
-      let stderr = '';
-      let exitCode;
+      return run().then(result => {
+        let exitCode = result.exitCode;
+        let stderr = result.stderr;
 
-      return new Promise(resolve => {
-        let ps = cp.spawn('node', [
-          path.join(process.cwd(), 'bin/ember-modules-codemod')
-        ], {
-          cwd: tmpPath
-        });
-
-        ps.stderr.on('data', data => {
-          stderr += data.toString();
-        });
-
-        ps.on('exit', (code, signal) => {
-          exitCode = code;
-
-          resolve();
-        });
-      }).then(() => {
         expect(exitCode).toEqual(0);
 
         // jscodeshift can process in any order
@@ -102,26 +100,10 @@ describe('bin acceptance', function() {
       });
 
       it('works', function() {
-        let stdout = '';
-        let exitCode;
+        return run().then(result => {
+          let exitCode = result.exitCode;
+          let stdout = result.stdout;
 
-        return new Promise(resolve => {
-          let ps = cp.spawn('node', [
-            path.join(process.cwd(), 'bin/ember-modules-codemod')
-          ], {
-            cwd: tmpPath
-          });
-
-          ps.stdout.on('data', data => {
-            stdout += data.toString();
-          });
-
-          ps.on('exit', (code, signal) => {
-            exitCode = code;
-
-            resolve();
-          });
-        }).then(() => {
           expect(exitCode).toEqual(0);
 
           expect(stdout).toMatch('Done! All uses of the Ember global have been updated.\n');
