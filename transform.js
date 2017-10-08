@@ -1,3 +1,5 @@
+'use strict';
+
 const fs       = require("fs");
 const RESERVED = require("ember-rfc176-data/reserved");
 const MAPPINGS = require("ember-rfc176-data");
