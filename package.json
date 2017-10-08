@@ -16,15 +16,8 @@
     "jscodeshift": "^0.3.29"
   },
   "devDependencies": {
-    "babel-jest": "^20.0.3",
-    "babel-preset-env": "^1.6.0",
     "fs-extra": "^4.0.2",
     "jest": "^20.0.4",
     "tmp": "^0.0.33"
-  },
-  "babel": {
-    "presets": [
-      "env"
-    ]
   }
 }
