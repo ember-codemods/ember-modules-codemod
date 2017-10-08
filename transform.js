@@ -287,7 +287,11 @@ function transform(file, api/*, options*/) {
       // just "Ember.computed"—we want "Ember.computed.or" as well.
       let candidates = expandMemberExpressions(path);
       if (namespace) {
-        candidates = candidates.map(([path, propertyPath]) => [path, `${namespace}.${propertyPath}`]);
+        candidates = candidates.map(expression => {
+          let path = expression[0];
+          let propertyPath = expression[1];
+          return [path, `${namespace}.${propertyPath}`];
+        });
       }
 
       // This will give us an array of tuples ([pathString, node]) that represent
@@ -298,7 +302,10 @@ function transform(file, api/*, options*/) {
       //
       // We'll go through these to find the most specific candidate that matches
       // our global->ES6 map.
-      let found = candidates.find(([_, propertyPath]) => propertyPath in mappings);
+      let found = candidates.find(expression => {
+        let propertyPath = expression[1];
+        return propertyPath in mappings;
+      });
 
       // If we got this far but didn't find a viable candidate, that means the user is
       // using something on the `Ember` global that we don't have a module equivalent for.
@@ -307,7 +314,8 @@ function transform(file, api/*, options*/) {
         return null;
       }
 
-      let [nodePath, propertyPath] = found;
+      let nodePath = found[0];
+      let propertyPath = found[1];
       let mapping = mappings[propertyPath];
 
       let mod = mapping.getModule();
@@ -443,7 +451,9 @@ function transform(file, api/*, options*/) {
 
     registry.modules.forEach(mod => {
       if (!mod.node) {
-        let { source, imported, local } = mod;
+        let source = mod.source;
+        let imported = mod.imported;
+        let local = mod.local;
 
         let declaration = root.find(j.ImportDeclaration, {
           source: { value: mod.source }
@@ -477,7 +487,8 @@ function transform(file, api/*, options*/) {
 
     root
       .find(j.ImportDeclaration)
-      .forEach(({ node }) => {
+      .forEach(mod => {
+        let node = mod.node;
         let source = node.source.value;
 
         node.specifiers.forEach(spec => {
@@ -660,10 +671,10 @@ class Replacement {
 }
 
 class Mapping {
-  constructor({module, export: exportName, localName}, registry) {
-    this.source = module;
-    this.imported = exportName;
-    this.local = localName;
+  constructor(options, registry) {
+    this.source = options.module;
+    this.imported = options.export;
+    this.local = options.localName;
     this.registry = registry;
   }
 
