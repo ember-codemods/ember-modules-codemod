@@ -2,6 +2,7 @@
 
 [![npm version](https://badge.fury.io/js/ember-modules-codemod.svg)](https://badge.fury.io/js/ember-modules-codemod)
 [![Build Status](https://travis-ci.org/ember-cli/ember-modules-codemod.svg?branch=master)](https://travis-ci.org/ember-cli/ember-modules-codemod)
+[![Build status](https://ci.appveyor.com/api/projects/status/q0tmqlbgdtfnnss7/branch/master?svg=true)](https://ci.appveyor.com/project/embercli/ember-modules-codemod/branch/master)
 
 This codemod uses [`jscodeshift`](https://github.com/facebook/jscodeshift) to update an Ember application to
 import framework code using module syntax, as proposed in [RFC 176: JavaScript Module API](https://github.com/emberjs/rfcs/pull/176). It can update apps that use the global `Ember`, and will eventually also support
