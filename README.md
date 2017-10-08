@@ -1,5 +1,7 @@
 # Ember Modules Codemod
 
+[![Build Status](https://travis-ci.org/ember-cli/ember-modules-codemod.svg?branch=master)](https://travis-ci.org/ember-cli/ember-modules-codemod)
+
 This codemod uses [`jscodeshift`](https://github.com/facebook/jscodeshift) to update an Ember application to
 import framework code using module syntax, as proposed in [RFC 176: JavaScript Module API](https://github.com/emberjs/rfcs/pull/176). It can update apps that use the global `Ember`, and will eventually also support
 apps using [ember-cli-shims][shims].
