@@ -8,7 +8,7 @@ const path = require("path");
 const glob = require("glob");
 
 let cwd = process.cwd();
-let pkgPath = cwd + "/package.json";
+let pkgPath = path.join(cwd, 'package.json');
 
 try {
   let pkg = JSON.parse(fs.readFileSync(pkgPath));
