@@ -5,8 +5,10 @@ const fs = require('fs-extra');
 const cp = require('child_process');
 const tmp = require('tmp');
 
-const inputFile = path.join(process.cwd(), '__testfixtures__/final-boss.input.js');
-const outputFile = path.join(process.cwd(), '__testfixtures__/final-boss.output.js');
+const originalCwd = process.cwd();
+
+const inputFile = path.join(originalCwd, '__testfixtures__/final-boss.input.js');
+const outputFile = path.join(originalCwd, '__testfixtures__/final-boss.output.js');
 
 let tmpPath;
 
@@ -16,7 +18,7 @@ function run() {
 
   return new Promise(resolve => {
     let ps = cp.spawn('node', [
-      path.join(process.cwd(), 'bin/ember-modules-codemod')
+      path.join(originalCwd, 'bin/ember-modules-codemod')
     ], {
       cwd: tmpPath
     });
@@ -45,7 +47,13 @@ describe('bin acceptance', function() {
   beforeEach(function() {
     tmpPath = tmp.dirSync().name;
 
-    tmpPackageJson = path.join(tmpPath, 'package.json');
+    process.chdir(tmpPath);
+
+    tmpPackageJson = path.join(process.cwd(), 'package.json');
+  });
+
+  afterAll(function() {
+    process.chdir(originalCwd);
   });
 
   it('handles non-ember projects', function() {
@@ -94,7 +102,7 @@ describe('bin acceptance', function() {
         tmpFile = path.join(tmpPath, 'app/final-boss.js');
 
         fs.copySync(
-          path.join(process.cwd(), '__testfixtures__/final-boss.input.js'),
+          path.join(originalCwd, '__testfixtures__/final-boss.input.js'),
           tmpFile
         );
       });
