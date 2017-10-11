@@ -102,7 +102,7 @@ describe('bin acceptance', function() {
         tmpFile = path.join(tmpPath, 'app/final-boss.js');
 
         fs.copySync(
-          path.join(originalCwd, '__testfixtures__/final-boss.input.js'),
+          inputFile,
           tmpFile
         );
       });
