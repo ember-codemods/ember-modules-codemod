@@ -108,9 +108,9 @@ function buildReport() {
 }
 
 function runtimeErrorWarning(line) {
-  let path = line.path;
-  let source = line.source;
-  let err = line.err;
+  let path = line[1];
+  let source = line[2];
+  let err = line[3];
 
   return `### Runtime Error
 
@@ -131,10 +131,10 @@ ${source}
 }
 
 function unknownGlobalWarning(line) {
-  let global = line.global;
-  let lineNumber = line.lineNumber;
-  let path = line.path;
-  let context = line.context;
+  let global = line[1];
+  let lineNumber = line[2];
+  let path = line[3];
+  let context = line[4];
 
   return `### Unknown Global
 
