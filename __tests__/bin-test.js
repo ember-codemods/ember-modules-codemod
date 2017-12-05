@@ -145,7 +145,8 @@ describe('bin acceptance', function() {
           expect(stdout).toMatch('Done! Some files could not be upgraded automatically. See MODULE_REPORT.md.\n');
 
           let expectedOutput = fs.readFileSync(path.join(__dirname, 'expected', 'MODULE_REPORT.md'), 'utf8')
-            .replace(/\//, path.sep);
+            .replace(/\//, path.sep)
+            .replace(/\r?\n/g, require('os').EOL);
           let actualOutput = fs.readFileSync(path.join(tmpPath, 'MODULE_REPORT.md'), 'utf8');
 
           expect(actualOutput).toEqual(expectedOutput);
