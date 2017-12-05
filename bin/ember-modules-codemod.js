@@ -99,7 +99,12 @@ function buildReport() {
         }
       });
 
-      fs.writeFileSync("MODULE_REPORT.md", "## Module Report\n" + report.join("\n"));
+      let file = "## Module Report\n" + report.join("\n");
+
+      // normalize line endings, so we don't end up with mixed
+      file = file.replace(/\r?\n/g, require('os').EOL);
+
+      fs.writeFileSync("MODULE_REPORT.md", file);
       console.log(chalk.yellow("\nDone! Some files could not be upgraded automatically. See " + chalk.blue("MODULE_REPORT.md") + "."));
     } else {
       console.log(chalk.green("\nDone! All uses of the Ember global have been updated."));
