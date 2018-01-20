@@ -200,7 +200,7 @@ function transform(file, api/*, options*/) {
     let globalEmberWithNestedProperties = [globalEmber];
     let uses = root.find(j.VariableDeclarator, (node) => {
       if (j.Identifier.check(node.init)) {
-        if (globalEmberWithNestedProperties.includes(node.init.name)) {
+        if (includes(globalEmberWithNestedProperties, node.init.name)) {
           // We've found an Ember global, or one of its nested properties.
           // Add it to the uses, and add its properties to the list of nested properties
           const identifierProperties = getIdentifierProperties(node);
