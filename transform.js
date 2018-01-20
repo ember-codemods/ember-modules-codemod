@@ -204,7 +204,7 @@ function transform(file, api/*, options*/) {
           // We've found an Ember global, or one of its nested properties.
           // Add it to the uses, and add its properties to the list of nested properties
           const identifierProperties = getIdentifierProperties(node);
-          globalEmberWithNestedProperties.push(...identifierProperties);
+          globalEmberWithNestedProperties = globalEmberWithNestedProperties.concat(identifierProperties);
           return true;
         }
       } else if (j.MemberExpression.check(node.init)) {
