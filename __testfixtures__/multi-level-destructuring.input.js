@@ -1,7 +1,14 @@
 import Ember from 'ember';
-const { computed } = Ember;
+
+const { computed, inject, String } = Ember;
 const { oneWay } = computed;
+const { service } = inject;
+const { camelize } = String;
 
 export default Ember.Component.extend({
-  name: oneWay('userName')
-})
+  barService: service('bar'),
+  name: oneWay('userName'),
+  foo() {
+    camelize('bar');
+  }
+});
