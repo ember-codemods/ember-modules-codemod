@@ -34,6 +34,8 @@ function transform(file, api/*, options*/) {
   // use this at the end to generate a report.
   let warnings = [];
 
+  let pendingGlobals = {};
+
   try {
     // Discover existing module imports, if any, in the file. If the user has
     // already imported one or more exports that we rewrite a global with, we
@@ -62,6 +64,10 @@ function transform(file, api/*, options*/) {
     // e.g. `const { String: { underscore } } = Ember;`.
     let globalAliases = findGlobalEmberAliases(root, globalEmber, mappings);
 
+    // Go through all of the tracked pending Ember globals. The ones that have
+    // been marked as missing should be added to the warnings.
+    resolvePendingGlobals();
+
     // Resolve the discovered aliases against the module registry. We intentionally do
     // this ahead of finding replacements for e.g. `Ember.String.underscore` usage in
     // order to reuse custom names for any fields referenced both ways.
@@ -72,7 +78,6 @@ function transform(file, api/*, options*/) {
     // mappings, save it off for replacement later.
     let replacements = findUsageOfEmberGlobal(root, globalEmber)
       .map(findReplacement(mappings));
-
     // add the already found namespace replacements to our replacement array
     for (let ns of namespaceUsages) {
       let namespaceReplacements = ns.usages
@@ -188,15 +193,49 @@ function transform(file, api/*, options*/) {
   }
 
   function findUsageOfDestructuredEmber(root, globalEmber) {
+    // Keep track of the nested properties off of the Ember namespace,
+    // to support multi-statement destructuring, i.e.:
+    // const { computed } = Ember;
+    // const { oneWay } = computed;
+    let globalEmberWithNestedProperties = [globalEmber];
     let uses = root.find(j.VariableDeclarator, (node) => {
       if (j.Identifier.check(node.init)) {
-        return node.init.name === globalEmber;
+        if (includes(globalEmberWithNestedProperties, node.init.name)) {
+          // We've found an Ember global, or one of its nested properties.
+          // Add it to the uses, and add its properties to the list of nested properties
+          const identifierProperties = getIdentifierProperties(node);
+          globalEmberWithNestedProperties = globalEmberWithNestedProperties.concat(identifierProperties);
+          return true;
+        }
       } else if (j.MemberExpression.check(node.init)) {
         return node.init.object.name === globalEmber;
       }
     });
 
     return uses.paths();
+  }
+
+  function resolvePendingGlobals() {
+    Object.keys(pendingGlobals).forEach((key) => {
+      let pendingGlobal = pendingGlobals[key];
+      const parentPath = pendingGlobal.pattern.parentPath;
+      if (!pendingGlobal.hasMissingGlobal) {
+        parentPath.prune();
+      } else {
+        warnMissingGlobal(parentPath, pendingGlobal.emberPath);
+      }
+    })
+  }
+
+  function getIdentifierProperties(node) {
+    let identifierProperties = [];
+    node.id.properties.forEach((property) => {
+      if (j.Identifier.check(property.value)) {
+        identifierProperties.push(property.key.name);
+      }
+    });
+
+    return identifierProperties;
   }
 
   function joinEmberPath(nodePath, globalEmber) {
@@ -217,16 +256,38 @@ function transform(file, api/*, options*/) {
 
   // Determine aliases introduced by the given destructuring pattern, removing
   // items from the pattern when they're available via a module import instead.
+  // Also tracks and flags pending globals for future patterns,
+  // in case we have multi-statement destructuring, i.e:
+  // const { computed } = Ember;
+  // const { oneWay } = computed;
   function extractAliases(mappings, pattern, emberPath) {
     if (j.Identifier.check(pattern.node)) {
       if (emberPath in mappings) {
         pattern.parentPath.prune();
+        const pendingGlobalParent = findPendingGlobal(emberPath);
+        if (pendingGlobalParent) {
+          // A parent has been found. Mark it as no longer being missing.
+          pendingGlobalParent.hasMissingGlobal = false;
+        }
+
         return [new GlobalAlias(pattern, emberPath)];
       } else {
-        // skip warnings for destructured namespaces, these will be handled elsewhere
-        if (!includes(EMBER_NAMESPACES, emberPath)) {
-          warnMissingGlobal(pattern.parentPath, emberPath);
+        let thisPatternHasMissingGlobal = false;
+        const pendingGlobalParent = findPendingGlobal(emberPath);
+        if (pendingGlobalParent) {
+          // A parent has been found.  Mark it as a missing global.
+          pendingGlobalParent.hasMissingGlobal = true;
+        } else {
+          // Otherwise, mark this pattern as a missing global.
+          thisPatternHasMissingGlobal = true;
         }
+
+        // Add this pattern to pendingGlobals
+        pendingGlobals[pattern.node.name] = {
+          pattern,
+          emberPath,
+          hasMissingGlobal: thisPatternHasMissingGlobal
+        };
       }
     } else if (j.ObjectPattern.check(pattern.node)) {
       let aliases = findObjectPatternAliases(mappings, pattern, emberPath);
@@ -237,6 +298,19 @@ function transform(file, api/*, options*/) {
     }
 
     return [];
+  }
+
+  function findPendingGlobal(emberPath) {
+    if (!emberPath) {
+      return;
+    }
+    const paths = emberPath.split('.');
+    for (let idx = 0; idx < paths.length; idx++) {
+      const path = paths[idx];
+      if (pendingGlobals[path]) {
+        return pendingGlobals[path];
+      }
+    }
   }
 
   function findObjectPatternAliases(mappings, objectPattern, basePath) {
