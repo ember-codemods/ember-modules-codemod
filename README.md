@@ -82,6 +82,7 @@ Markdown report if any unknown globals are discovered.
 ```sh
 yarn test // run all tests once
 yarn test -- --watchAll // continuously run tests
+yarn test:debug // run tests in debug mode (using Chrome's chrome://inspect tab)
 ```
 
 Tests for this codemod work by comparing a paired input and output file in the `__testfixtures__` directory.  Pre-transform files should be of format `<test-name>.input.js`, expected output after the transform should be named `<test-name>.output.js`. Files must use the same `<test-name>` in their names so they can be compared.
