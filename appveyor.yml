@@ -1,7 +1,7 @@
 environment:
   matrix:
-    - nodejs_version: "4"
     - nodejs_version: "6"
+    - nodejs_version: "8"
 
 # Fix line endings in Windows. (runs before repo cloning)
 init:
