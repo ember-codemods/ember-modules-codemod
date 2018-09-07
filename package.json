@@ -6,7 +6,8 @@
   "repository": "https://github.com/ember-cli/ember-modules-codemod",
   "bin": "./bin/ember-modules-codemod.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "test:debug": "node --inspect node_modules/.bin/jest --runInBand"
   },
   "dependencies": {
     "chalk": "^1.1.3",

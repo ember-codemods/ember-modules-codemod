@@ -22,7 +22,16 @@ try {
     EMBER_MODULES_CODEMOD: true
   }, process.env);
 
-  let transform = execa(binPath, ["-t", transformPath, "app", "addon", "addon-test-support", "tests", "test-support", "lib"], {
+  const args = process.argv;
+  let jscodeshiftPaths;
+  if (args[2]) {
+    jscodeshiftPaths = [args[2]];
+  } else {
+    jscodeshiftPaths = ["app", "addon", "addon-test-support", "tests", "test-support", "lib"];
+  }
+  const jscodeshiftArgs = ["-t", transformPath].concat(jscodeshiftPaths);
+
+  let transform = execa(binPath, jscodeshiftArgs, {
     stdio: "inherit",
     env: env
   });
