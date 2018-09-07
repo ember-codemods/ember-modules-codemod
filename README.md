@@ -50,6 +50,25 @@ Or using `npx`:
 npx ember-modules-codemod
 ```
 
+### Paths
+
+By default, `ember-modules-codemod` will apply changes on files in the following folders:
+
+```
+app/
+addon/
+addon-test-support/
+lib/
+tests/
+test-support/
+```
+
+You can also execute the codemod in a specific folder:
+
+```sh
+ember-modules-codemod my-folder-to-modify
+```
+
 #### Unknown Globals
 
 If the codemod finds a use of the `Ember` global it doesn't know how to
