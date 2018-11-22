@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "chalk": "^1.1.3",
-    "ember-rfc176-data": "^0.3.2",
+    "ember-rfc176-data": "^0.3.5",
     "execa": "~0.8.0",
     "glob": "^7.1.3",
     "jscodeshift": "^0.3.29"
