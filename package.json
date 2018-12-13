@@ -17,7 +17,7 @@
     "jscodeshift": "^0.3.29"
   },
   "devDependencies": {
-    "fs-extra": "^4.0.2",
+    "fs-extra": "^7.0.1",
     "jest": "^23.6.0",
     "tmp": "^0.0.33"
   },
