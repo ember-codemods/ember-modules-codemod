@@ -93,7 +93,7 @@ function buildReport() {
         });
 
       // Delete the temporary log file
-      fs.unlink(log);
+      fs.unlinkSync(log);
     });
 
     // If there's anything to report, convert the JSON tuple into human-formatted
