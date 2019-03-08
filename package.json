@@ -18,7 +18,7 @@
   },
   "devDependencies": {
     "fs-extra": "^7.0.1",
-    "jest": "^24.1.0",
+    "jest": "^24.3.1",
     "tmp": "^0.0.33"
   },
   "engines": {
