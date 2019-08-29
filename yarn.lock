@@ -1694,9 +1694,9 @@ ecc-jsbn@~0.1.1:
   dependencies:
     jsbn "~0.1.0"
 
-ember-rfc176-data@^0.3.10:
-  version "0.3.10"
-  resolved "https://registry.yarnpkg.com/ember-rfc176-data/-/ember-rfc176-data-0.3.10.tgz#84e5133f562c2585ca2c7646a88ef665263db882"
+ember-rfc176-data@^0.3.12:
+  version "0.3.12"
+  resolved "https://registry.yarnpkg.com/ember-rfc176-data/-/ember-rfc176-data-0.3.12.tgz#90d82878e69e2ac9a5438e8ce14d12c6031c5bd2"
 
 end-of-stream@^1.1.0:
   version "1.4.1"
