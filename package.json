@@ -14,7 +14,7 @@
     "ember-rfc176-data": "^0.3.12",
     "execa": "~1.0.0",
     "glob": "^7.1.6",
-    "jscodeshift": "^0.3.29"
+    "jscodeshift": "^0.6.4"
   },
   "devDependencies": {
     "fs-extra": "^8.1.0",
