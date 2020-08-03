@@ -1720,9 +1720,9 @@ ecc-jsbn@~0.1.1:
   dependencies:
     jsbn "~0.1.0"
 
-ember-rfc176-data@^0.3.14:
-  version "0.3.14"
-  resolved "https://registry.yarnpkg.com/ember-rfc176-data/-/ember-rfc176-data-0.3.14.tgz#308808aa4bfdb655e6c3624fbe774699906c59ed"
+ember-rfc176-data@^0.3.15:
+  version "0.3.15"
+  resolved "https://registry.yarnpkg.com/ember-rfc176-data/-/ember-rfc176-data-0.3.15.tgz#af3f1da5a0339b6feda380edc2f7190e0f416c2d"
 
 emoji-regex@^7.0.1:
   version "7.0.3"
