@@ -10,7 +10,7 @@
     "test:debug": "node --inspect node_modules/.bin/jest --runInBand"
   },
   "dependencies": {
-    "chalk": "^2.4.2",
+    "chalk": "^4.1.2",
     "ember-rfc176-data": "^0.3.16",
     "execa": "~1.0.0",
     "glob": "^7.1.6",
