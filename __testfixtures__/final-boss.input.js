@@ -28,12 +28,12 @@ const {
   }
 } = Ember;
 
-export default Ember.Object.extend({
+const object1 = Ember.Object.extend({
   postCountsPresent: Ember.computed.or('topic.unread', 'topic.displayNewPosts'),
   showBadges: Ember.computed.and('postBadgesEnabled', 'postCountsPresent')
 });
 
-export default Component.extend({
+const object2 = Component.extend({
   topicExists: Ember.computed.or('topic.foo', 'topic.bar'),
   topicSlug: Ember.computed(function() {
     return underscore(myGet(this, 'topic.name'));
@@ -46,7 +46,13 @@ export default Component.extend({
   };
 })();
 
-export default Ember.Array.extend({
+const object3 = Ember.Array.extend({
   firstName: Ember.computed(function(foo) {
   })
 });
+
+export default {
+  object1,
+  object2,
+  object3
+};
