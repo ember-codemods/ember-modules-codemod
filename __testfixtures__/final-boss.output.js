@@ -25,12 +25,12 @@ import { or as bore, and } from "@ember/object/computed";
 
 let bar = foo.Ember.computed.or;
 
-export default FemberObject.extend({
+const object1 = FemberObject.extend({
   postCountsPresent: bore('topic.unread', 'topic.displayNewPosts'),
   showBadges: and('postBadgesEnabled', 'postCountsPresent')
 });
 
-export default Component.extend({
+const object2 = Component.extend({
   topicExists: bore('topic.foo', 'topic.bar'),
   topicSlug: computed(function() {
     return underscore(myGet(this, 'topic.name'));
@@ -43,7 +43,13 @@ export default Component.extend({
   };
 })();
 
-export default EmberArray.extend({
+const object3 = EmberArray.extend({
   firstName: computed(function(foo) {
   })
 });
+
+export default {
+  object1,
+  object2,
+  object3
+};
